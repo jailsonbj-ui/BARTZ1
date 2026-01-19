@@ -405,7 +405,10 @@ export default function ControlPanel({
                         data-testid="input-current-liters"
                         type="number"
                         value={vehicle.current_liters}
-                        onChange={(e) => setVehicle({ ...vehicle, current_liters: parseFloat(e.target.value) })}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value);
+                          setVehicle({ ...vehicle, current_liters: isNaN(val) ? 0 : val });
+                        }}
                         className="bg-secondary border-white/10 font-mono"
                       />
                       <span className="text-muted-foreground text-sm">L</span>
@@ -420,7 +423,10 @@ export default function ControlPanel({
                         type="number"
                         step="0.1"
                         value={vehicle.consumption_rate}
-                        onChange={(e) => setVehicle({ ...vehicle, consumption_rate: parseFloat(e.target.value) })}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value);
+                          setVehicle({ ...vehicle, consumption_rate: isNaN(val) ? 0 : val });
+                        }}
                         className="bg-secondary border-white/10 font-mono"
                       />
                       <span className="text-muted-foreground text-sm">km/L</span>
@@ -434,7 +440,10 @@ export default function ControlPanel({
                         data-testid="input-tank-capacity"
                         type="number"
                         value={vehicle.tank_capacity}
-                        onChange={(e) => setVehicle({ ...vehicle, tank_capacity: parseFloat(e.target.value) })}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value);
+                          setVehicle({ ...vehicle, tank_capacity: isNaN(val) ? 0 : val });
+                        }}
                         className="bg-secondary border-white/10 font-mono"
                       />
                       <span className="text-muted-foreground text-sm">L</span>
