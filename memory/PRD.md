@@ -11,35 +11,39 @@ Sistema inteligente de logística para controle de abastecimento de carretas com
 - Gerador de ordem de serviço para WhatsApp
 
 ## Arquitetura
-- **Frontend**: React + Tailwind CSS + Leaflet/OpenStreetMap
-- **Backend**: FastAPI + MongoDB
+- **Frontend**: React + Tailwind CSS + Leaflet/OpenStreetMap + React-Leaflet
+- **Backend**: FastAPI + MongoDB + OSRM (routing)
 - **IA**: OpenAI GPT-5.2 via Emergent LLM Key
-- **Mapas**: CartoDB Dark Matter (gratuito)
+- **Mapas**: CartoDB Dark Matter + ESRI Satellite
+
+## O Que Foi Implementado (19/01/2026)
+
+### Versão 1.0 (Inicial)
+- Layout 70/30 com mapa e painel lateral
+- Mapa interativo com tema escuro
+- CRUD completo de postos de combustível
+- Calculadora de rota (linha reta)
+
+### Versão 2.0 (Melhorias do Usuário)
+- ✅ **Rota por RODOVIAS reais** (OSRM - Open Source Routing Machine)
+- ✅ **Entrada simplificada**: apenas nomes de cidades (sem lat/lng)
+- ✅ **Vista Satélite/Aérea** (toggle no header)
+- ✅ **Busca de postos** por cidade/nome
+- ✅ **Postos ao longo da rota** identificados automaticamente
+- ✅ **Tempo estimado** de viagem
+- ✅ Distância real ~1128km (Porto Alegre → São Paulo) vs 852km linha reta
 
 ## User Personas
 1. **Gestor de Frota** - Monitora rotas e custos de abastecimento
 2. **Motorista** - Recebe ordens de serviço via WhatsApp
 
-## O Que Foi Implementado (19/01/2026)
-- ✅ Layout 70/30 com mapa e painel lateral
-- ✅ Mapa interativo com tema escuro
-- ✅ CRUD completo de postos de combustível
-- ✅ Marcadores personalizados com preços
-- ✅ Calculadora de rota com distância Haversine
-- ✅ Dados do veículo (litros, consumo, capacidade)
-- ✅ Cálculo de autonomia em tempo real
-- ✅ Ponto limite de combustível no mapa
-- ✅ Recomendação IA de melhor posto
-- ✅ Gerador de ordem de serviço
-- ✅ Compartilhamento via WhatsApp
-- ✅ Postos fictícios Porto Alegre - São Paulo
-
 ## Backlog (P0/P1/P2)
+
 ### P0 - Crítico
 - Nenhum pendente
 
 ### P1 - Importante
-- Integração com Google Maps Directions API para rotas reais
+- Retry logic para APIs externas (Nominatim)
 - Histórico de abastecimentos
 - Dashboard de custos
 
@@ -49,6 +53,6 @@ Sistema inteligente de logística para controle de abastecimento de carretas com
 - Integração com sistemas de frotas
 
 ## Próximas Tarefas
-1. Integrar API de direções para rotas mais precisas
-2. Adicionar autenticação de usuários
-3. Implementar dashboard de análise de custos
+1. Adicionar mais cidades ao dicionário KNOWN_CITIES
+2. Implementar histórico de viagens
+3. Dashboard com análise de custos por período
