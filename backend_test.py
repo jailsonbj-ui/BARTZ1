@@ -241,7 +241,8 @@ class FleetFuelAPITester:
             print(f"\n❌ FAILED TESTS:")
             for result in self.test_results:
                 if not result['success']:
-                    print(f"  - {result['name']}: {result.get('error', f'Status {result.get(\"actual_status\", \"unknown\")}')}")
+                    error_msg = result.get('error', f'Status {result.get("actual_status", "unknown")}')
+                    print(f"  - {result['name']}: {error_msg}")
         
         return self.tests_passed == self.tests_run
 
