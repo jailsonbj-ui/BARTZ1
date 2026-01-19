@@ -90,10 +90,60 @@ class ServiceOrderRequest(BaseModel):
     coordinates: str
     fuel_amount: Optional[float] = None
 
-# ========== GEOCODING SERVICE (Nominatim) ==========
+# ========== GEOCODING SERVICE ==========
+
+# Known Brazilian cities coordinates (fallback)
+KNOWN_CITIES = {
+    "porto alegre": {"lat": -30.0346, "lng": -51.2177, "name": "Porto Alegre, RS"},
+    "sao paulo": {"lat": -23.5505, "lng": -46.6333, "name": "São Paulo, SP"},
+    "são paulo": {"lat": -23.5505, "lng": -46.6333, "name": "São Paulo, SP"},
+    "curitiba": {"lat": -25.4290, "lng": -49.2671, "name": "Curitiba, PR"},
+    "florianopolis": {"lat": -27.5954, "lng": -48.5480, "name": "Florianópolis, SC"},
+    "florianópolis": {"lat": -27.5954, "lng": -48.5480, "name": "Florianópolis, SC"},
+    "campinas": {"lat": -22.9099, "lng": -47.0626, "name": "Campinas, SP"},
+    "santos": {"lat": -23.9608, "lng": -46.3336, "name": "Santos, SP"},
+    "rio de janeiro": {"lat": -22.9068, "lng": -43.1729, "name": "Rio de Janeiro, RJ"},
+    "belo horizonte": {"lat": -19.9167, "lng": -43.9345, "name": "Belo Horizonte, MG"},
+    "registro": {"lat": -24.4872, "lng": -47.8439, "name": "Registro, SP"},
+    "joinville": {"lat": -26.3045, "lng": -48.8487, "name": "Joinville, SC"},
+    "blumenau": {"lat": -26.9194, "lng": -49.0661, "name": "Blumenau, SC"},
+    "caxias do sul": {"lat": -29.1678, "lng": -51.1794, "name": "Caxias do Sul, RS"},
+    "pelotas": {"lat": -31.7654, "lng": -52.3376, "name": "Pelotas, RS"},
+    "londrina": {"lat": -23.3045, "lng": -51.1696, "name": "Londrina, PR"},
+    "maringa": {"lat": -23.4210, "lng": -51.9331, "name": "Maringá, PR"},
+    "maringá": {"lat": -23.4210, "lng": -51.9331, "name": "Maringá, PR"},
+    "sorocaba": {"lat": -23.5015, "lng": -47.4526, "name": "Sorocaba, SP"},
+    "ribeirao preto": {"lat": -21.1775, "lng": -47.8103, "name": "Ribeirão Preto, SP"},
+    "ribeirão preto": {"lat": -21.1775, "lng": -47.8103, "name": "Ribeirão Preto, SP"},
+}
+
+def normalize_city_name(name: str) -> str:
+    """Normalize city name for matching"""
+    import unicodedata
+    # Remove accents and convert to lowercase
+    name = unicodedata.normalize('NFKD', name.lower())
+    name = ''.join(c for c in name if not unicodedata.combining(c))
+    # Remove state abbreviations like ", RS" or "- SP"
+    for sep in [',', '-', '/']:
+        if sep in name:
+            name = name.split(sep)[0].strip()
+    return name.strip()
 
 async def geocode_location(query: str, country: str = "br") -> Optional[GeocodingResult]:
-    """Geocode a location using Nominatim (OpenStreetMap)"""
+    """Geocode a location - first check known cities, then try Nominatim"""
+    
+    # Check known cities first
+    normalized = normalize_city_name(query)
+    if normalized in KNOWN_CITIES:
+        city = KNOWN_CITIES[normalized]
+        return GeocodingResult(
+            name=city["name"],
+            latitude=city["lat"],
+            longitude=city["lng"],
+            display_name=city["name"]
+        )
+    
+    # Try Nominatim as fallback
     async with httpx.AsyncClient() as client:
         try:
             response = await client.get(
@@ -105,7 +155,8 @@ async def geocode_location(query: str, country: str = "br") -> Optional[Geocodin
                     "limit": 1,
                     "addressdetails": 1
                 },
-                headers={"User-Agent": "SmartFuel/1.0"}
+                headers={"User-Agent": "SmartFuel/1.0"},
+                timeout=10.0
             )
             results = response.json()
             if results:
@@ -118,6 +169,8 @@ async def geocode_location(query: str, country: str = "br") -> Optional[Geocodin
                 )
         except Exception as e:
             logger.error(f"Geocoding error: {e}")
+    
+    # Return None if city not found
     return None
 
 @api_router.get("/geocode")
