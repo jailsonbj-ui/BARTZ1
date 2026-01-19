@@ -1,34 +1,73 @@
-.App-logo {
-    height: 40vmin;
-    pointer-events: none;
+/* Fleet Dashboard Styles */
+.leaflet-container {
+    height: 100%;
+    width: 100%;
+    z-index: 0;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-    .App-logo {
-        animation: App-logo-spin infinite 20s linear;
+/* Route line styling */
+.route-line {
+    stroke: #F97316;
+    stroke-width: 4;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* Station card hover effect */
+.station-card {
+    transition: all 0.2s ease-in-out;
+}
+
+.station-card:hover {
+    transform: translateX(4px);
+    border-color: rgba(249, 115, 22, 0.5);
+}
+
+/* Input focus styles */
+.input-focus:focus {
+    outline: none;
+    ring: 2px;
+    ring-color: #F97316;
+}
+
+/* Panel transition */
+.panel-slide {
+    transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
+}
+
+/* Recommendation badge pulse */
+.recommended-badge {
+    animation: badge-pulse 2s infinite;
+}
+
+@keyframes badge-pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
     }
 }
 
-.App-header {
-    background-color: #0f0f10;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    font-size: calc(10px + 2vmin);
-    color: white;
+/* Map controls positioning */
+.map-controls {
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    z-index: 1000;
 }
 
-.App-link {
-    color: #61dafb;
+/* Autonomy indicator */
+.autonomy-bar {
+    transition: width 0.5s ease-out;
 }
 
-@keyframes App-logo-spin {
-    from {
-        transform: rotate(0deg);
-    }
-    to {
-        transform: rotate(360deg);
-    }
+/* WhatsApp button */
+.whatsapp-btn {
+    background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
+}
+
+.whatsapp-btn:hover {
+    background: linear-gradient(135deg, #22c55e 0%, #15803d 100%);
 }
