@@ -201,8 +201,25 @@ class FleetFuelAPITester:
                     if 'station' in rec_result['recommendation']:
                         station = rec_result['recommendation']['station']
                         print(f"   Recommended: {station.get('name', 'Unknown')} - R$ {station.get('diesel_price', 0):.2f}/L")
+                    if 'ai_analysis' in rec_result['recommendation']:
+                        analysis = rec_result['recommendation']['ai_analysis']
+                        print(f"   AI Analysis: {analysis[:100]}...")
                 else:
                     print(f"⚠️  AI recommendation returned but no recommendation found")
+    
+    def test_search_functionality(self):
+        """Test station search functionality"""
+        print("\n=== TESTING SEARCH FUNCTIONALITY ===")
+        
+        # Test station search
+        success, search_result = self.run_test("Search Stations", "GET", "search-stations?query=posto", 200)
+        if success:
+            print(f"✅ Station search returned {len(search_result)} results")
+        
+        # Test geocoding search
+        success, geo_result = self.run_test("Geocode Search", "GET", "geocode?query=Curitiba", 200)
+        if success:
+            print(f"✅ Geocoding search returned {len(geo_result)} results")
 
     def test_service_order_generation(self):
         """Test service order generation"""
