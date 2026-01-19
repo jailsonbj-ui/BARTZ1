@@ -1,0 +1,169 @@
+{
+  "design_system": {
+    "identity": {
+      "name": "E1_Logistics_Pro",
+      "archetype": "The Performance Pro",
+      "core_philosophy": "Tactical Minimalism. Data is the art. Dark mode is the canvas.",
+      "emotional_tone": "Precision, Reliability, Industrial Strength",
+      "theme_mode": "dark"
+    },
+    "typography": {
+      "font_family": {
+        "headings": "Barlow Condensed, sans-serif",
+        "body": "Inter, sans-serif",
+        "mono": "JetBrains Mono, monospace"
+      },
+      "imports": [
+        "https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;800&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;700&display=swap"
+      ],
+      "usage_rules": {
+        "headings": "Uppercase, tracking-tight, font-weight 800. Use for KPI values and Section Headers.",
+        "body": "High legibility, tracking-normal. Use for labels and descriptions.",
+        "mono": "Use for ALL numerical data (prices, liters, coordinates) to ensure alignment."
+      }
+    },
+    "colors": {
+      "palette": {
+        "background": {
+          "default": "#020617",
+          "paper": "#0F172A",
+          "overlay": "rgba(15, 23, 42, 0.8)"
+        },
+        "primary": {
+          "main": "#F97316",
+          "hover": "#EA580C",
+          "foreground": "#FFFFFF"
+        },
+        "secondary": {
+          "main": "#3B82F6",
+          "foreground": "#FFFFFF"
+        },
+        "status": {
+          "success": "#10B981",
+          "warning": "#F59E0B",
+          "error": "#EF4444",
+          "info": "#0EA5E9"
+        },
+        "map": {
+          "water": "#171717",
+          "land": "#262626",
+          "road": "#404040"
+        }
+      },
+      "tailwind_config_override": {
+        "css_vars": {
+          "--background": "222 47% 11%",
+          "--foreground": "210 40% 98%",
+          "--card": "222 47% 11%",
+          "--card-foreground": "210 40% 98%",
+          "--popover": "222 47% 11%",
+          "--popover-foreground": "210 40% 98%",
+          "--primary": "24.6 95% 53.1%",
+          "--primary-foreground": "60 9.1% 97.8%",
+          "--secondary": "217.2 32.6% 17.5%",
+          "--secondary-foreground": "210 40% 98%",
+          "--muted": "217.2 32.6% 17.5%",
+          "--muted-foreground": "215 20.2% 65.1%",
+          "--accent": "217.2 32.6% 17.5%",
+          "--accent-foreground": "210 40% 98%",
+          "--destructive": "0 62.8% 30.6%",
+          "--destructive-foreground": "210 40% 98%",
+          "--border": "217.2 32.6% 17.5%",
+          "--input": "217.2 32.6% 17.5%",
+          "--ring": "24.6 95% 53.1%"
+        }
+      }
+    },
+    "layout": {
+      "structure": "Split View: 70% Map (Left/Background) | 30% Control Panel (Right/Overlay)",
+      "grid_system": "Bento Grid Mode B (High Density)",
+      "spacing": {
+        "container_padding": "p-4 md:p-6",
+        "element_gap": "gap-3"
+      },
+      "z_index": {
+        "map": 0,
+        "overlay_panel": 10,
+        "modal": 50,
+        "toast": 100
+      }
+    },
+    "components": {
+      "map": {
+        "library": "react-leaflet",
+        "tile_layer": "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+        "attribution": "&copy; <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors &copy; <a href='https://carto.com/attributions'>CARTO</a>",
+        "marker_style": "Custom SVG icons. Green for cheap fuel, Red for expensive. Pulsing effect for 'Recommended'."
+      },
+      "cards": {
+        "style": "Glassmorphism with 1px border. border-white/10 bg-slate-950/80 backdrop-blur-md.",
+        "radius": "rounded-none md:rounded-lg"
+      },
+      "buttons": {
+        "primary": "bg-primary text-primary-foreground hover:bg-primary/90 sharp-edges or minimal radius (rounded-sm). uppercase text.",
+        "secondary": "border border-input bg-background hover:bg-accent hover:text-accent-foreground"
+      }
+    },
+    "visual_enhancers": {
+      "glassmorphism": "backdrop-blur-xl bg-background/80 border-l border-white/5",
+      "gradients": "No full screen gradients. Use subtle radial gradients for 'glow' effects on active elements.",
+      "shadows": "shadow-[0_8px_30px_rgb(0,0,0,0.5)] for floating panels."
+    },
+    "assets": {
+      "images": [
+        {
+          "category": "hero_truck",
+          "url": "https://images.unsplash.com/photo-1590964840029-4bda21da7280?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2MzR8MHwxfHNlYXJjaHwxfHxtb2Rlcm4lMjBzZW1pJTIwdHJ1Y2slMjBzaWRlJTIwdmlldyUyMGRhcmslMjBiYWNrZ3JvdW5kfGVufDB8fHx8MTc2ODg1NDg0OHww&ixlib=rb-4.1.0&q=85",
+          "description": "Side view of a modern truck at night, use for vehicle details section background or hero."
+        },
+        {
+          "category": "gas_station_recommended",
+          "url": "https://images.unsplash.com/photo-1681300131911-f12c82896413?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODF8MHwxfHNlYXJjaHwzfHxnYXMlMjBzdGF0aW9uJTIwbmlnaHQlMjBhZXN0aGV0aWN8ZW58MHx8fHwxNzY4ODU0ODUxfDA&ixlib=rb-4.1.0&q=85",
+          "description": "Lit up gas station at night, use for the 'Best Price' recommendation card."
+        },
+        {
+          "category": "gas_station_generic",
+          "url": "https://images.unsplash.com/photo-1680529666105-537bd58a365f?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODF8MHwxfHNlYXJjaHwxfHxnYXMlMjBzdGF0aW9uJTIwbmlnaHQlMjBhZXN0aGV0aWN8ZW58MHx8fHwxNzY4ODU0ODUxfDA&ixlib=rb-4.1.0&q=85",
+          "description": "Black and white gas station, use for list items."
+        }
+      ],
+      "icons": "Use Lucide React. Preferred icons: Fuel, MapPin, Truck, Navigation, Calculator, Settings, AlertTriangle."
+    }
+  },
+  "implementation_steps": [
+    {
+      "step": 1,
+      "description": "Setup Tailwind Colors",
+      "action": "Update /app/frontend/src/index.css with the provided CSS variables for the 'dark' theme. Ensure 'light' theme variables are also compatible or force dark mode."
+    },
+    {
+      "step": 2,
+      "description": "Install Dependencies",
+      "action": "npm install leaflet react-leaflet @types/leaflet @types/react-leaflet lucide-react"
+    },
+    {
+      "step": 3,
+      "description": "Create Layout Shell",
+      "action": "Create a main layout with a full-screen div for the map and a fixed/absolute positioned sidebar (right side) for the controls. Use z-index to layer them."
+    },
+    {
+      "step": 4,
+      "description": "Build Map Component",
+      "action": "Initialize Leaflet map. Add TileLayer (Dark Matter). Create a custom 'StationMarker' component that accepts price and status."
+    },
+    {
+      "step": 5,
+      "description": "Build Control Panel",
+      "action": "Create the sidebar using the 'Glassmorphism' style. Divide into sections: 'Vehicle Status', 'Route Calculator', 'Station List'."
+    }
+  ],
+  "universal_guidelines": [
+    "Dark colors look good when used independently without gradients. DO NOT use dark colors as gradients.",
+    "Don't make generic centered layouts. Use the 70/30 split.",
+    "Create depth through layered design elements with z-index hierarchy.",
+    "Use glass-morphism effects with backdrop filters (12-24px blur) for the sidebar.",
+    "All interactive elements MUST include data-testid attributes.",
+    "Use 'sonner' for toast notifications.",
+    "NEVER use transparent backgrounds for dropdowns or overlays without a blur/scrim."
+  ]
+}
