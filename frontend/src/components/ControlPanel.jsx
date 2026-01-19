@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,7 +22,11 @@ import {
   Calculator,
   AlertTriangle,
   X,
+  Search,
+  Clock,
+  Loader2,
 } from "lucide-react";
+import debounce from "@/utils/debounce";
 
 export default function ControlPanel({
   isOpen,
@@ -31,11 +35,11 @@ export default function ControlPanel({
   setSelectedStation,
   vehicle,
   setVehicle,
-  origin,
-  setOrigin,
-  destination,
-  setDestination,
-  waypoints,
+  originCity,
+  setOriginCity,
+  destinationCity,
+  setDestinationCity,
+  waypointCities,
   addWaypoint,
   removeWaypoint,
   updateWaypoint,
@@ -48,17 +52,70 @@ export default function ControlPanel({
   createStation,
   updateStation,
   deleteStation,
+  searchStation,
   isLoading,
+  stationsAlongRoute,
 }) {
   const [copied, setCopied] = useState(false);
   const [stationForm, setStationForm] = useState({
     name: "",
     diesel_price: 5.5,
     is_active: true,
+    city: "",
+    address: "",
   });
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
 
   const autonomy = vehicle.current_liters * vehicle.consumption_rate;
   const autonomyPercent = Math.min((autonomy / (routeData?.total_distance || 1000)) * 100, 100);
+
+  // Debounced search function
+  const debouncedSearch = useCallback(
+    debounce(async (query) => {
+      if (query.length < 3) {
+        setSearchResults([]);
+        return;
+      }
+      setIsSearching(true);
+      try {
+        const results = await searchStation(query);
+        setSearchResults(results);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 500),
+    [searchStation]
+  );
+
+  const handleSearchChange = (e) => {
+    const query = e.target.value;
+    setSearchQuery(query);
+    debouncedSearch(query);
+  };
+
+  const selectSearchResult = (result) => {
+    setSelectedStation({
+      isNew: true,
+      latitude: result.latitude,
+      longitude: result.longitude,
+      name: result.name || "",
+      diesel_price: 5.50,
+      is_active: true,
+    });
+    setStationForm({
+      name: result.name || "",
+      diesel_price: 5.50,
+      is_active: true,
+      city: result.city || "",
+      address: result.address || "",
+    });
+    setSearchQuery("");
+    setSearchResults([]);
+  };
 
   const handleSaveStation = async () => {
     if (selectedStation?.isNew) {
@@ -68,9 +125,11 @@ export default function ControlPanel({
         longitude: selectedStation.longitude,
         diesel_price: stationForm.diesel_price,
         is_active: stationForm.is_active,
+        city: stationForm.city,
+        address: stationForm.address,
       });
       setSelectedStation(null);
-      setStationForm({ name: "", diesel_price: 5.5, is_active: true });
+      setStationForm({ name: "", diesel_price: 5.5, is_active: true, city: "", address: "" });
     } else if (selectedStation) {
       await updateStation(selectedStation.id, {
         name: stationForm.name || selectedStation.name,
@@ -103,6 +162,8 @@ export default function ControlPanel({
       name: station.name,
       diesel_price: station.diesel_price,
       is_active: station.is_active,
+      city: station.city || "",
+      address: station.address || "",
     });
   };
 
@@ -142,78 +203,38 @@ export default function ControlPanel({
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div>
-                    <Label className="text-xs text-muted-foreground">Origem</Label>
+                    <Label className="text-xs text-muted-foreground">Cidade de Origem</Label>
                     <Input
-                      data-testid="input-origin"
-                      value={origin.name}
-                      onChange={(e) => setOrigin({ ...origin, name: e.target.value })}
-                      placeholder="Cidade de origem"
+                      data-testid="input-origin-city"
+                      value={originCity}
+                      onChange={(e) => setOriginCity(e.target.value)}
+                      placeholder="Ex: Porto Alegre, RS"
                       className="bg-secondary border-white/10"
                     />
-                    <div className="grid grid-cols-2 gap-2 mt-1">
-                      <Input
-                        data-testid="input-origin-lat"
-                        type="number"
-                        step="0.0001"
-                        value={origin.latitude}
-                        onChange={(e) => setOrigin({ ...origin, latitude: parseFloat(e.target.value) })}
-                        placeholder="Latitude"
-                        className="bg-secondary border-white/10 text-xs"
-                      />
-                      <Input
-                        data-testid="input-origin-lng"
-                        type="number"
-                        step="0.0001"
-                        value={origin.longitude}
-                        onChange={(e) => setOrigin({ ...origin, longitude: parseFloat(e.target.value) })}
-                        placeholder="Longitude"
-                        className="bg-secondary border-white/10 text-xs"
-                      />
-                    </div>
                   </div>
 
                   <div>
-                    <Label className="text-xs text-muted-foreground">Destino</Label>
+                    <Label className="text-xs text-muted-foreground">Cidade de Destino</Label>
                     <Input
-                      data-testid="input-destination"
-                      value={destination.name}
-                      onChange={(e) => setDestination({ ...destination, name: e.target.value })}
-                      placeholder="Cidade de destino"
+                      data-testid="input-destination-city"
+                      value={destinationCity}
+                      onChange={(e) => setDestinationCity(e.target.value)}
+                      placeholder="Ex: São Paulo, SP"
                       className="bg-secondary border-white/10"
                     />
-                    <div className="grid grid-cols-2 gap-2 mt-1">
-                      <Input
-                        data-testid="input-dest-lat"
-                        type="number"
-                        step="0.0001"
-                        value={destination.latitude}
-                        onChange={(e) => setDestination({ ...destination, latitude: parseFloat(e.target.value) })}
-                        placeholder="Latitude"
-                        className="bg-secondary border-white/10 text-xs"
-                      />
-                      <Input
-                        data-testid="input-dest-lng"
-                        type="number"
-                        step="0.0001"
-                        value={destination.longitude}
-                        onChange={(e) => setDestination({ ...destination, longitude: parseFloat(e.target.value) })}
-                        placeholder="Longitude"
-                        className="bg-secondary border-white/10 text-xs"
-                      />
-                    </div>
                   </div>
 
                   {/* Waypoints */}
-                  {waypoints.length > 0 && (
+                  {waypointCities.length > 0 && (
                     <div className="space-y-2">
                       <Label className="text-xs text-muted-foreground">Paradas Intermediárias</Label>
-                      {waypoints.map((wp, index) => (
+                      {waypointCities.map((city, index) => (
                         <div key={index} className="flex items-center gap-2">
                           <Input
-                            value={wp.name}
-                            onChange={(e) => updateWaypoint(index, { name: e.target.value })}
-                            placeholder={`Parada ${index + 1}`}
-                            className="bg-secondary border-white/10 text-xs flex-1"
+                            value={city}
+                            onChange={(e) => updateWaypoint(index, e.target.value)}
+                            placeholder={`Ex: Curitiba, PR`}
+                            className="bg-secondary border-white/10 text-sm flex-1"
                           />
                           <Button
                             variant="ghost"
@@ -245,7 +266,14 @@ export default function ControlPanel({
                     disabled={isLoading}
                     className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-heading uppercase"
                   >
-                    {isLoading ? "Calculando..." : "Calcular Rota"}
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Calculando...
+                      </>
+                    ) : (
+                      "Calcular Rota"
+                    )}
                   </Button>
                 </CardContent>
               </Card>
@@ -274,6 +302,13 @@ export default function ControlPanel({
                       </div>
                     </div>
 
+                    {routeData.duration_minutes && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground bg-secondary/50 rounded-lg p-2">
+                        <Clock className="w-4 h-4" />
+                        <span>Tempo estimado: {Math.floor(routeData.duration_minutes / 60)}h {Math.round(routeData.duration_minutes % 60)}min</span>
+                      </div>
+                    )}
+
                     <div className="space-y-1">
                       <div className="flex justify-between text-xs">
                         <span className="text-muted-foreground">Progresso da Autonomia</span>
@@ -293,6 +328,12 @@ export default function ControlPanel({
                             Limite em {routeData.fuel_limit_point?.distance_from_origin?.toFixed(0)} km
                           </div>
                         </div>
+                      </div>
+                    )}
+
+                    {stationsAlongRoute.length > 0 && (
+                      <div className="text-xs text-muted-foreground bg-blue-500/10 rounded-lg p-2">
+                        <span className="text-blue-400 font-medium">{stationsAlongRoute.length} postos</span> encontrados ao longo da rota
                       </div>
                     )}
 
@@ -327,6 +368,9 @@ export default function ControlPanel({
                       </div>
                       <div>
                         <div className="font-medium">{recommendation.recommendation.station.name}</div>
+                        {recommendation.recommendation.station.city && (
+                          <div className="text-xs text-muted-foreground">{recommendation.recommendation.station.city}</div>
+                        )}
                         <div className="text-2xl font-mono font-bold text-green-400">
                           R$ {recommendation.recommendation.station.diesel_price.toFixed(2)}/L
                         </div>
@@ -475,6 +519,52 @@ export default function ControlPanel({
 
             {/* STATIONS TAB */}
             <TabsContent value="stations" className="space-y-4">
+              {/* Search Bar */}
+              <Card className="bg-card border-white/5">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-heading uppercase tracking-wide flex items-center gap-2">
+                    <Search className="w-4 h-4 text-primary" />
+                    Buscar Posto
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <div className="relative">
+                    <Input
+                      data-testid="input-search-station"
+                      value={searchQuery}
+                      onChange={handleSearchChange}
+                      placeholder="Digite cidade e nome do posto..."
+                      className="bg-secondary border-white/10 pr-10"
+                    />
+                    {isSearching && (
+                      <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
+                    )}
+                  </div>
+                  
+                  {/* Search Results */}
+                  {searchResults.length > 0 && (
+                    <div className="bg-secondary/80 rounded-lg border border-white/5 max-h-48 overflow-y-auto">
+                      {searchResults.map((result, index) => (
+                        <div
+                          key={index}
+                          onClick={() => selectSearchResult(result)}
+                          className="p-2 hover:bg-white/5 cursor-pointer border-b border-white/5 last:border-0"
+                        >
+                          <div className="font-medium text-sm">{result.name || "Posto"}</div>
+                          <div className="text-xs text-muted-foreground truncate">
+                            {result.city && `${result.city} • `}{result.display_name}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  <p className="text-xs text-muted-foreground">
+                    Busque por cidade ou nome do posto para adicionar
+                  </p>
+                </CardContent>
+              </Card>
+
               {/* Station Editor */}
               {selectedStation && (
                 <Card className="bg-card border-primary/30">
@@ -504,6 +594,18 @@ export default function ControlPanel({
                         className="bg-secondary border-white/10"
                       />
                     </div>
+
+                    {stationForm.city && (
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Cidade</Label>
+                        <Input
+                          value={stationForm.city}
+                          onChange={(e) => setStationForm({ ...stationForm, city: e.target.value })}
+                          className="bg-secondary border-white/10"
+                          readOnly
+                        />
+                      </div>
+                    )}
 
                     <div>
                       <Label className="text-xs text-muted-foreground">Preço do Diesel (R$/L)</Label>
@@ -558,7 +660,8 @@ export default function ControlPanel({
               {!selectedStation && (
                 <div className="text-center text-muted-foreground text-sm p-4 bg-secondary/50 rounded-lg border border-dashed border-white/10">
                   <MapPin className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                  Clique no mapa para adicionar um novo posto
+                  <p>Use a busca acima para encontrar postos</p>
+                  <p className="text-xs mt-1">ou clique no mapa para adicionar manualmente</p>
                 </div>
               )}
 
@@ -600,7 +703,7 @@ export default function ControlPanel({
                             <div>
                               <div className="font-medium text-sm">{station.name}</div>
                               <div className="text-xs text-muted-foreground">
-                                {station.latitude.toFixed(2)}, {station.longitude.toFixed(2)}
+                                {station.city || `${station.latitude.toFixed(2)}, ${station.longitude.toFixed(2)}`}
                               </div>
                             </div>
                           </div>

@@ -13,9 +13,25 @@ L.Icon.Default.mergeOptions({
   shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
 });
 
+// Tile layer URLs for different styles
+const TILE_LAYERS = {
+  dark: {
+    url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+  },
+  satellite: {
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    attribution: '&copy; <a href="https://www.esri.com/">Esri</a>'
+  },
+  streets: {
+    url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+  }
+};
+
 // Custom icon creators
-const createStationIcon = (isActive, isRecommended, price) => {
-  const color = isRecommended ? "#10B981" : isActive ? "#F97316" : "#64748B";
+const createStationIcon = (isActive, isRecommended, price, isAlongRoute) => {
+  const color = isRecommended ? "#10B981" : isAlongRoute ? "#3B82F6" : isActive ? "#F97316" : "#64748B";
   const pulseClass = isRecommended ? "marker-pulse" : "";
   
   const iconHtml = renderToStaticMarkup(
@@ -34,7 +50,7 @@ const createStationIcon = (isActive, isRecommended, price) => {
       <div
         style={{
           backgroundColor: "#0F172A",
-          color: "#F97316",
+          color: isRecommended ? "#10B981" : "#F97316",
           fontSize: "11px",
           fontWeight: "bold",
           padding: "2px 6px",
@@ -109,14 +125,17 @@ function MapClickHandler({ onMapClick }) {
   return null;
 }
 
-// Map center updater
-function MapCenterUpdater({ center }) {
+// Map bounds updater
+function MapBoundsUpdater({ routeData }) {
   const map = useMap();
+  
   useEffect(() => {
-    if (center) {
-      map.setView(center, map.getZoom());
+    if (routeData?.route_geometry?.length > 0) {
+      const bounds = L.latLngBounds(routeData.route_geometry);
+      map.fitBounds(bounds, { padding: [50, 50] });
     }
-  }, [center, map]);
+  }, [routeData, map]);
+  
   return null;
 }
 
@@ -127,17 +146,16 @@ export default function MapView({
   routeData,
   recommendation,
   onMapClick,
-  origin,
-  destination,
-  waypoints,
+  mapStyle = "dark",
+  stationsAlongRoute = [],
 }) {
   const mapRef = useRef(null);
 
   // Calculate map center
   const center = useMemo(() => {
-    if (routeData?.route_points?.length > 0) {
-      const lats = routeData.route_points.map((p) => p.lat);
-      const lngs = routeData.route_points.map((p) => p.lng);
+    if (routeData?.route_geometry?.length > 0) {
+      const lats = routeData.route_geometry.map((p) => p[0]);
+      const lngs = routeData.route_geometry.map((p) => p[1]);
       return [
         (Math.min(...lats) + Math.max(...lats)) / 2,
         (Math.min(...lngs) + Math.max(...lngs)) / 2,
@@ -146,16 +164,17 @@ export default function MapView({
     return [-26.5, -49.5]; // Default center between POA and SP
   }, [routeData]);
 
-  // Route polyline coordinates
-  const routeCoordinates = useMemo(() => {
-    if (!routeData?.route_points) return [];
-    return routeData.route_points.map((p) => [p.lat, p.lng]);
-  }, [routeData]);
-
   // Check if station is recommended
   const isRecommended = (station) => {
     return recommendation?.recommendation?.station?.id === station.id;
   };
+
+  // Check if station is along route
+  const isAlongRoute = (station) => {
+    return stationsAlongRoute.some(s => s.id === station.id);
+  };
+
+  const tileLayer = TILE_LAYERS[mapStyle] || TILE_LAYERS.dark;
 
   return (
     <MapContainer
@@ -166,60 +185,39 @@ export default function MapView({
       data-testid="map-container"
     >
       <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
-        url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+        attribution={tileLayer.attribution}
+        url={tileLayer.url}
       />
 
       <MapClickHandler onMapClick={onMapClick} />
-      <MapCenterUpdater center={center} />
+      <MapBoundsUpdater routeData={routeData} />
 
-      {/* Route Line */}
-      {routeCoordinates.length > 1 && (
+      {/* Route Line - Real road path */}
+      {routeData?.route_geometry?.length > 1 && (
         <Polyline
-          positions={routeCoordinates}
+          positions={routeData.route_geometry}
           color="#F97316"
-          weight={4}
-          opacity={0.8}
-          dashArray="10, 10"
+          weight={5}
+          opacity={0.9}
         />
       )}
 
-      {/* Origin Marker */}
-      {origin && (
+      {/* Route Points from calculated route */}
+      {routeData?.route_points?.map((point, index) => (
         <Marker
-          position={[origin.latitude, origin.longitude]}
-          icon={createRoutePointIcon("origin")}
+          key={`route-point-${index}`}
+          position={[point.lat, point.lng]}
+          icon={createRoutePointIcon(
+            index === 0 ? "origin" : 
+            index === routeData.route_points.length - 1 ? "destination" : 
+            "waypoint"
+          )}
         >
           <Popup className="dark-popup">
-            <div className="text-sm font-medium">{origin.name}</div>
-            <div className="text-xs text-muted-foreground">Origem</div>
-          </Popup>
-        </Marker>
-      )}
-
-      {/* Destination Marker */}
-      {destination && (
-        <Marker
-          position={[destination.latitude, destination.longitude]}
-          icon={createRoutePointIcon("destination")}
-        >
-          <Popup className="dark-popup">
-            <div className="text-sm font-medium">{destination.name}</div>
-            <div className="text-xs text-muted-foreground">Destino</div>
-          </Popup>
-        </Marker>
-      )}
-
-      {/* Waypoint Markers */}
-      {waypoints.map((wp, index) => (
-        <Marker
-          key={`waypoint-${index}`}
-          position={[wp.latitude, wp.longitude]}
-          icon={createRoutePointIcon("waypoint")}
-        >
-          <Popup className="dark-popup">
-            <div className="text-sm font-medium">{wp.name}</div>
-            <div className="text-xs text-muted-foreground">Parada {index + 1}</div>
+            <div className="text-sm font-medium">{point.name}</div>
+            <div className="text-xs text-muted-foreground">
+              {index === 0 ? "Origem" : index === routeData.route_points.length - 1 ? "Destino" : `Parada ${index}`}
+            </div>
           </Popup>
         </Marker>
       ))}
@@ -244,7 +242,12 @@ export default function MapView({
         <Marker
           key={station.id}
           position={[station.latitude, station.longitude]}
-          icon={createStationIcon(station.is_active, isRecommended(station), station.diesel_price)}
+          icon={createStationIcon(
+            station.is_active, 
+            isRecommended(station), 
+            station.diesel_price,
+            isAlongRoute(station)
+          )}
           eventHandlers={{
             click: () => setSelectedStation(station),
           }}
@@ -252,6 +255,7 @@ export default function MapView({
           <Popup className="dark-popup">
             <div className="p-1">
               <div className="font-medium text-sm">{station.name}</div>
+              {station.city && <div className="text-xs text-muted-foreground">{station.city}</div>}
               <div className="text-primary font-mono font-bold">
                 R$ {station.diesel_price.toFixed(2)}/L
               </div>
@@ -263,6 +267,11 @@ export default function MapView({
                   Recomendado pela IA
                 </div>
               )}
+              {isAlongRoute(station) && !isRecommended(station) && (
+                <div className="mt-1 text-xs bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded">
+                  Na rota ({station.distance_to_route?.toFixed(0) || '?'} km)
+                </div>
+              )}
             </div>
           </Popup>
         </Marker>
@@ -272,7 +281,7 @@ export default function MapView({
       {selectedStation?.isNew && (
         <Marker
           position={[selectedStation.latitude, selectedStation.longitude]}
-          icon={createStationIcon(true, false, selectedStation.diesel_price || 5.5)}
+          icon={createStationIcon(true, false, selectedStation.diesel_price || 5.5, false)}
         >
           <Popup className="dark-popup">
             <div className="text-sm">Novo posto</div>

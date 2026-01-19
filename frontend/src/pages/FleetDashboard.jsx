@@ -3,7 +3,7 @@ import axios from "axios";
 import { toast } from "sonner";
 import MapView from "@/components/MapView";
 import ControlPanel from "@/components/ControlPanel";
-import { Fuel, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { Fuel, PanelRightClose, PanelRightOpen, Map, Satellite } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -13,25 +13,19 @@ export default function FleetDashboard() {
   const [selectedStation, setSelectedStation] = useState(null);
   const [isPanelOpen, setIsPanelOpen] = useState(true);
   const [routeData, setRouteData] = useState(null);
+  const [mapStyle, setMapStyle] = useState("dark"); // dark, satellite, streets
   const [vehicle, setVehicle] = useState({
     current_liters: 200,
     consumption_rate: 2.5,
     tank_capacity: 400,
   });
-  const [origin, setOrigin] = useState({
-    name: "Porto Alegre",
-    latitude: -30.0346,
-    longitude: -51.2177,
-  });
-  const [destination, setDestination] = useState({
-    name: "São Paulo",
-    latitude: -23.5505,
-    longitude: -46.6333,
-  });
-  const [waypoints, setWaypoints] = useState([]);
+  const [originCity, setOriginCity] = useState("Porto Alegre, RS");
+  const [destinationCity, setDestinationCity] = useState("São Paulo, SP");
+  const [waypointCities, setWaypointCities] = useState([]);
   const [recommendation, setRecommendation] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [serviceOrder, setServiceOrder] = useState(null);
+  const [stationsAlongRoute, setStationsAlongRoute] = useState([]);
 
   // Fetch stations on mount
   useEffect(() => {
@@ -56,28 +50,45 @@ export default function FleetDashboard() {
   };
 
   const calculateRoute = useCallback(async () => {
+    if (!originCity.trim() || !destinationCity.trim()) {
+      toast.error("Informe origem e destino!");
+      return;
+    }
+    
     setIsLoading(true);
     try {
       const response = await axios.post(`${API}/calculate-route`, {
-        origin,
-        destination,
-        waypoints,
+        origin_city: originCity,
+        destination_city: destinationCity,
+        waypoint_cities: waypointCities.filter(c => c.trim()),
         vehicle,
       });
       setRouteData(response.data);
       
+      // Get stations along the route
+      if (response.data.route_geometry) {
+        try {
+          const stationsResponse = await axios.post(`${API}/stations-along-route`, response.data.route_geometry, {
+            params: { max_distance_km: 50 }
+          });
+          setStationsAlongRoute(stationsResponse.data);
+        } catch (e) {
+          console.error("Error getting stations along route:", e);
+        }
+      }
+      
       if (!response.data.can_complete_route) {
         toast.warning("Autonomia insuficiente para completar a rota!");
       } else {
-        toast.success(`Rota calculada: ${response.data.total_distance.toFixed(0)} km`);
+        toast.success(`Rota calculada: ${response.data.total_distance.toFixed(0)} km via rodovias`);
       }
     } catch (error) {
       console.error("Error calculating route:", error);
-      toast.error("Erro ao calcular rota");
+      toast.error(error.response?.data?.detail || "Erro ao calcular rota");
     } finally {
       setIsLoading(false);
     }
-  }, [origin, destination, waypoints, vehicle]);
+  }, [originCity, destinationCity, waypointCities, vehicle]);
 
   const getRecommendation = async () => {
     if (!routeData) {
@@ -87,10 +98,12 @@ export default function FleetDashboard() {
     
     setIsLoading(true);
     try {
+      const stationsToAnalyze = stationsAlongRoute.length > 0 ? stationsAlongRoute : stations;
       const response = await axios.post(`${API}/recommend-station`, {
         route_distance: routeData.total_distance,
         vehicle,
-        stations,
+        stations: stationsToAnalyze,
+        route_geometry: routeData.route_geometry,
       });
       setRecommendation(response.data);
       toast.success("Recomendação gerada com IA!");
@@ -107,7 +120,7 @@ export default function FleetDashboard() {
     try {
       const response = await axios.post(`${API}/generate-service-order`, {
         station_name: station.name,
-        station_location: `Lat: ${station.latitude.toFixed(4)}, Lng: ${station.longitude.toFixed(4)}`,
+        station_location: station.city || `Lat: ${station.latitude.toFixed(4)}, Lng: ${station.longitude.toFixed(4)}`,
         coordinates: `${station.latitude},${station.longitude}`,
         fuel_amount: vehicle.tank_capacity - vehicle.current_liters,
       });
@@ -118,6 +131,19 @@ export default function FleetDashboard() {
       toast.error("Erro ao gerar ordem de serviço");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const searchStation = async (query) => {
+    try {
+      const response = await axios.get(`${API}/search-stations`, {
+        params: { query }
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Error searching stations:", error);
+      toast.error("Erro na busca de postos");
+      return [];
     }
   };
 
@@ -172,18 +198,22 @@ export default function FleetDashboard() {
   };
 
   const addWaypoint = () => {
-    setWaypoints([
-      ...waypoints,
-      { name: `Parada ${waypoints.length + 1}`, latitude: -26.5, longitude: -49.0 },
-    ]);
+    setWaypointCities([...waypointCities, ""]);
   };
 
   const removeWaypoint = (index) => {
-    setWaypoints(waypoints.filter((_, i) => i !== index));
+    setWaypointCities(waypointCities.filter((_, i) => i !== index));
   };
 
-  const updateWaypoint = (index, data) => {
-    setWaypoints(waypoints.map((wp, i) => (i === index ? { ...wp, ...data } : wp)));
+  const updateWaypoint = (index, value) => {
+    setWaypointCities(waypointCities.map((wp, i) => (i === index ? value : wp)));
+  };
+
+  const toggleMapStyle = () => {
+    const styles = ["dark", "satellite", "streets"];
+    const currentIndex = styles.indexOf(mapStyle);
+    const nextIndex = (currentIndex + 1) % styles.length;
+    setMapStyle(styles[nextIndex]);
   };
 
   return (
@@ -201,15 +231,27 @@ export default function FleetDashboard() {
             <p className="text-xs text-muted-foreground">Sistema de Gestão de Abastecimento</p>
           </div>
         </div>
-        <Button
-          data-testid="toggle-panel-btn"
-          variant="ghost"
-          size="icon"
-          onClick={() => setIsPanelOpen(!isPanelOpen)}
-          className="text-muted-foreground hover:text-foreground"
-        >
-          {isPanelOpen ? <PanelRightClose className="w-5 h-5" /> : <PanelRightOpen className="w-5 h-5" />}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            data-testid="toggle-map-style-btn"
+            variant="ghost"
+            size="icon"
+            onClick={toggleMapStyle}
+            className="text-muted-foreground hover:text-foreground"
+            title={`Mapa: ${mapStyle === 'dark' ? 'Escuro' : mapStyle === 'satellite' ? 'Satélite' : 'Ruas'}`}
+          >
+            {mapStyle === 'satellite' ? <Satellite className="w-5 h-5" /> : <Map className="w-5 h-5" />}
+          </Button>
+          <Button
+            data-testid="toggle-panel-btn"
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsPanelOpen(!isPanelOpen)}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            {isPanelOpen ? <PanelRightClose className="w-5 h-5" /> : <PanelRightOpen className="w-5 h-5" />}
+          </Button>
+        </div>
       </header>
 
       {/* Map Container */}
@@ -221,9 +263,8 @@ export default function FleetDashboard() {
           routeData={routeData}
           recommendation={recommendation}
           onMapClick={handleMapClick}
-          origin={origin}
-          destination={destination}
-          waypoints={waypoints}
+          mapStyle={mapStyle}
+          stationsAlongRoute={stationsAlongRoute}
         />
       </div>
 
@@ -235,11 +276,11 @@ export default function FleetDashboard() {
         setSelectedStation={setSelectedStation}
         vehicle={vehicle}
         setVehicle={setVehicle}
-        origin={origin}
-        setOrigin={setOrigin}
-        destination={destination}
-        setDestination={setDestination}
-        waypoints={waypoints}
+        originCity={originCity}
+        setOriginCity={setOriginCity}
+        destinationCity={destinationCity}
+        setDestinationCity={setDestinationCity}
+        waypointCities={waypointCities}
         addWaypoint={addWaypoint}
         removeWaypoint={removeWaypoint}
         updateWaypoint={updateWaypoint}
@@ -252,7 +293,9 @@ export default function FleetDashboard() {
         createStation={createStation}
         updateStation={updateStation}
         deleteStation={deleteStation}
+        searchStation={searchStation}
         isLoading={isLoading}
+        stationsAlongRoute={stationsAlongRoute}
       />
     </div>
   );

@@ -10,6 +10,7 @@ from typing import List, Optional
 import uuid
 from datetime import datetime, timezone
 from emergentintegrations.llm.chat import LlmChat, UserMessage
+import httpx
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -42,6 +43,8 @@ class FuelStation(BaseModel):
     longitude: float
     diesel_price: float
     is_active: bool = True
+    address: Optional[str] = None
+    city: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class FuelStationCreate(BaseModel):
@@ -50,6 +53,8 @@ class FuelStationCreate(BaseModel):
     longitude: float
     diesel_price: float
     is_active: bool = True
+    address: Optional[str] = None
+    city: Optional[str] = None
 
 class FuelStationUpdate(BaseModel):
     name: Optional[str] = None
@@ -61,27 +66,256 @@ class Vehicle(BaseModel):
     consumption_rate: float  # km per liter
     tank_capacity: float
 
-class RoutePoint(BaseModel):
+class RouteRequest(BaseModel):
+    origin_city: str
+    destination_city: str
+    waypoint_cities: List[str] = []
+    vehicle: Vehicle
+
+class GeocodingResult(BaseModel):
     name: str
     latitude: float
     longitude: float
-
-class RouteRequest(BaseModel):
-    origin: RoutePoint
-    destination: RoutePoint
-    waypoints: List[RoutePoint] = []
-    vehicle: Vehicle
+    display_name: str
 
 class RecommendationRequest(BaseModel):
     route_distance: float  # km
     vehicle: Vehicle
     stations: List[FuelStation]
+    route_geometry: Optional[List[List[float]]] = None
 
 class ServiceOrderRequest(BaseModel):
     station_name: str
     station_location: str
     coordinates: str
     fuel_amount: Optional[float] = None
+
+# ========== GEOCODING SERVICE (Nominatim) ==========
+
+async def geocode_location(query: str, country: str = "br") -> Optional[GeocodingResult]:
+    """Geocode a location using Nominatim (OpenStreetMap)"""
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(
+                "https://nominatim.openstreetmap.org/search",
+                params={
+                    "q": query,
+                    "countrycodes": country,
+                    "format": "json",
+                    "limit": 1,
+                    "addressdetails": 1
+                },
+                headers={"User-Agent": "SmartFuel/1.0"}
+            )
+            results = response.json()
+            if results:
+                result = results[0]
+                return GeocodingResult(
+                    name=query,
+                    latitude=float(result["lat"]),
+                    longitude=float(result["lon"]),
+                    display_name=result["display_name"]
+                )
+        except Exception as e:
+            logger.error(f"Geocoding error: {e}")
+    return None
+
+@api_router.get("/geocode")
+async def geocode_endpoint(query: str):
+    """Search for a location by name"""
+    async with httpx.AsyncClient() as http_client:
+        try:
+            response = await http_client.get(
+                "https://nominatim.openstreetmap.org/search",
+                params={
+                    "q": query,
+                    "countrycodes": "br",
+                    "format": "json",
+                    "limit": 5,
+                    "addressdetails": 1
+                },
+                headers={"User-Agent": "SmartFuel/1.0"},
+                timeout=10.0
+            )
+            results = response.json()
+            return [
+                {
+                    "name": r.get("name", query),
+                    "latitude": float(r["lat"]),
+                    "longitude": float(r["lon"]),
+                    "display_name": r["display_name"],
+                    "type": r.get("type", ""),
+                    "class": r.get("class", "")
+                }
+                for r in results
+            ]
+        except Exception as e:
+            logger.error(f"Geocoding error: {e}")
+            raise HTTPException(status_code=500, detail=f"Geocoding failed: {str(e)}")
+
+@api_router.get("/search-stations")
+async def search_stations(query: str):
+    """Search for fuel stations using Nominatim"""
+    async with httpx.AsyncClient() as http_client:
+        try:
+            # Search for fuel stations
+            response = await http_client.get(
+                "https://nominatim.openstreetmap.org/search",
+                params={
+                    "q": f"posto combustível {query}",
+                    "countrycodes": "br",
+                    "format": "json",
+                    "limit": 10,
+                    "addressdetails": 1
+                },
+                headers={"User-Agent": "SmartFuel/1.0"},
+                timeout=10.0
+            )
+            results = response.json()
+            
+            stations = []
+            for r in results:
+                addr = r.get("address", {})
+                stations.append({
+                    "name": r.get("name", f"Posto em {query}"),
+                    "latitude": float(r["lat"]),
+                    "longitude": float(r["lon"]),
+                    "display_name": r["display_name"],
+                    "city": addr.get("city") or addr.get("town") or addr.get("municipality", ""),
+                    "state": addr.get("state", ""),
+                    "address": f"{addr.get('road', '')} {addr.get('suburb', '')}".strip()
+                })
+            return stations
+        except Exception as e:
+            logger.error(f"Station search error: {e}")
+            raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
+
+# ========== ROUTING SERVICE (OSRM) ==========
+
+async def get_route_from_osrm(coordinates: List[tuple]) -> dict:
+    """Get route from OSRM (Open Source Routing Machine)"""
+    # Format coordinates as "lon,lat;lon,lat;..."
+    coords_str = ";".join([f"{lon},{lat}" for lat, lon in coordinates])
+    
+    async with httpx.AsyncClient() as http_client:
+        try:
+            response = await http_client.get(
+                f"https://router.project-osrm.org/route/v1/driving/{coords_str}",
+                params={
+                    "overview": "full",
+                    "geometries": "geojson",
+                    "steps": "true"
+                },
+                timeout=30.0
+            )
+            data = response.json()
+            
+            if data.get("code") == "Ok" and data.get("routes"):
+                route = data["routes"][0]
+                return {
+                    "distance": route["distance"] / 1000,  # Convert to km
+                    "duration": route["duration"] / 60,    # Convert to minutes
+                    "geometry": route["geometry"]["coordinates"],  # [lng, lat] pairs
+                    "steps": route.get("legs", [{}])[0].get("steps", [])
+                }
+        except Exception as e:
+            logger.error(f"OSRM routing error: {e}")
+    return None
+
+@api_router.post("/calculate-route")
+async def calculate_route(request: RouteRequest):
+    """Calculate route using real roads via OSRM"""
+    
+    # Geocode all locations
+    locations = []
+    
+    # Origin
+    origin = await geocode_location(request.origin_city)
+    if not origin:
+        raise HTTPException(status_code=400, detail=f"Não foi possível encontrar: {request.origin_city}")
+    locations.append({"name": request.origin_city, "lat": origin.latitude, "lng": origin.longitude, "display": origin.display_name})
+    
+    # Waypoints
+    for wp_city in request.waypoint_cities:
+        if wp_city.strip():
+            wp = await geocode_location(wp_city)
+            if wp:
+                locations.append({"name": wp_city, "lat": wp.latitude, "lng": wp.longitude, "display": wp.display_name})
+    
+    # Destination
+    dest = await geocode_location(request.destination_city)
+    if not dest:
+        raise HTTPException(status_code=400, detail=f"Não foi possível encontrar: {request.destination_city}")
+    locations.append({"name": request.destination_city, "lat": dest.latitude, "lng": dest.longitude, "display": dest.display_name})
+    
+    # Get route from OSRM
+    coordinates = [(loc["lat"], loc["lng"]) for loc in locations]
+    route_data = await get_route_from_osrm(coordinates)
+    
+    if not route_data:
+        raise HTTPException(status_code=500, detail="Erro ao calcular rota. Tente novamente.")
+    
+    total_distance = route_data["distance"]
+    
+    # Calculate autonomy
+    autonomy = request.vehicle.current_liters * request.vehicle.consumption_rate
+    fuel_needed = total_distance / request.vehicle.consumption_rate
+    
+    # Calculate where fuel will run out along the route
+    fuel_limit_point = None
+    if autonomy < total_distance:
+        # Find the point along the geometry where fuel runs out
+        cumulative_distance = 0
+        geometry = route_data["geometry"]
+        
+        for i in range(len(geometry) - 1):
+            p1 = geometry[i]
+            p2 = geometry[i + 1]
+            
+            # Calculate segment distance
+            segment_distance = calculate_distance(p1[1], p1[0], p2[1], p2[0])
+            
+            if cumulative_distance + segment_distance >= autonomy:
+                # Interpolate the exact point
+                remaining = autonomy - cumulative_distance
+                ratio = remaining / segment_distance if segment_distance > 0 else 0
+                
+                fuel_limit_point = {
+                    "longitude": p1[0] + ratio * (p2[0] - p1[0]),
+                    "latitude": p1[1] + ratio * (p2[1] - p1[1]),
+                    "distance_from_origin": round(autonomy, 2)
+                }
+                break
+            cumulative_distance += segment_distance
+    
+    # Convert geometry to [lat, lng] format for frontend
+    route_geometry = [[coord[1], coord[0]] for coord in route_data["geometry"]]
+    
+    return {
+        "total_distance": round(total_distance, 2),
+        "duration_minutes": round(route_data["duration"], 0),
+        "autonomy": round(autonomy, 2),
+        "fuel_needed": round(fuel_needed, 2),
+        "can_complete_route": autonomy >= total_distance,
+        "fuel_limit_point": fuel_limit_point,
+        "route_points": locations,
+        "route_geometry": route_geometry  # Actual road path
+    }
+
+def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Calculate distance between two points using Haversine formula (in km)"""
+    import math
+    R = 6371  # Earth's radius in km
+    
+    lat1_rad = math.radians(lat1)
+    lat2_rad = math.radians(lat2)
+    delta_lat = math.radians(lat2 - lat1)
+    delta_lon = math.radians(lon2 - lon1)
+    
+    a = math.sin(delta_lat/2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(delta_lon/2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    
+    return R * c
 
 # ========== FUEL STATION CRUD ==========
 
@@ -135,85 +369,48 @@ async def delete_station(station_id: str):
         raise HTTPException(status_code=404, detail="Station not found")
     return {"message": "Station deleted successfully"}
 
-# ========== ROUTE & AUTONOMY CALCULATION ==========
+# ========== STATIONS ALONG ROUTE ==========
 
-def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """Calculate distance between two points using Haversine formula (in km)"""
-    import math
-    R = 6371  # Earth's radius in km
+def point_to_line_distance(point_lat, point_lng, line_coords):
+    """Calculate minimum distance from a point to a polyline"""
+    min_distance = float('inf')
     
-    lat1_rad = math.radians(lat1)
-    lat2_rad = math.radians(lat2)
-    delta_lat = math.radians(lat2 - lat1)
-    delta_lon = math.radians(lon2 - lon1)
+    for i in range(len(line_coords) - 1):
+        p1 = line_coords[i]
+        p2 = line_coords[i + 1]
+        
+        # Simple perpendicular distance approximation
+        dist = calculate_distance(point_lat, point_lng, (p1[0] + p2[0])/2, (p1[1] + p2[1])/2)
+        min_distance = min(min_distance, dist)
     
-    a = math.sin(delta_lat/2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(delta_lon/2)**2
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
-    
-    return R * c
+    return min_distance
 
-@api_router.post("/calculate-route")
-async def calculate_route(request: RouteRequest):
-    """Calculate route distance and autonomy"""
-    points = [request.origin] + request.waypoints + [request.destination]
+@api_router.post("/stations-along-route")
+async def get_stations_along_route(route_geometry: List[List[float]], max_distance_km: float = 50):
+    """Get stations within max_distance_km of the route"""
+    stations = await db.fuel_stations.find({"is_active": True}, {"_id": 0}).to_list(1000)
     
-    total_distance = 0
-    segments = []
+    nearby_stations = []
+    for station in stations:
+        if isinstance(station.get('created_at'), str):
+            station['created_at'] = datetime.fromisoformat(station['created_at'])
+        
+        # Check distance to route
+        dist = point_to_line_distance(station['latitude'], station['longitude'], route_geometry)
+        if dist <= max_distance_km:
+            station['distance_to_route'] = round(dist, 2)
+            nearby_stations.append(station)
     
-    for i in range(len(points) - 1):
-        distance = calculate_distance(
-            points[i].latitude, points[i].longitude,
-            points[i+1].latitude, points[i+1].longitude
-        )
-        total_distance += distance
-        segments.append({
-            "from": points[i].name,
-            "to": points[i+1].name,
-            "distance": round(distance, 2)
-        })
+    # Sort by price
+    nearby_stations.sort(key=lambda s: s['diesel_price'])
     
-    # Calculate autonomy
-    autonomy = request.vehicle.current_liters * request.vehicle.consumption_rate
-    fuel_needed = total_distance / request.vehicle.consumption_rate
-    
-    # Calculate where fuel will run out
-    fuel_limit_distance = autonomy
-    fuel_limit_point = None
-    
-    if autonomy < total_distance:
-        cumulative_distance = 0
-        for i in range(len(points) - 1):
-            segment_distance = calculate_distance(
-                points[i].latitude, points[i].longitude,
-                points[i+1].latitude, points[i+1].longitude
-            )
-            if cumulative_distance + segment_distance >= autonomy:
-                # Interpolate the exact point
-                remaining = autonomy - cumulative_distance
-                ratio = remaining / segment_distance
-                fuel_limit_point = {
-                    "latitude": points[i].latitude + ratio * (points[i+1].latitude - points[i].latitude),
-                    "longitude": points[i].longitude + ratio * (points[i+1].longitude - points[i].longitude),
-                    "distance_from_origin": round(autonomy, 2)
-                }
-                break
-            cumulative_distance += segment_distance
-    
-    return {
-        "total_distance": round(total_distance, 2),
-        "segments": segments,
-        "autonomy": round(autonomy, 2),
-        "fuel_needed": round(fuel_needed, 2),
-        "can_complete_route": autonomy >= total_distance,
-        "fuel_limit_point": fuel_limit_point,
-        "route_points": [{"name": p.name, "lat": p.latitude, "lng": p.longitude} for p in points]
-    }
+    return nearby_stations
 
 # ========== AI RECOMMENDATION ==========
 
 @api_router.post("/recommend-station")
 async def recommend_station(request: RecommendationRequest):
-    """Use AI to recommend the best fuel station"""
+    """Use AI to recommend the best fuel station along the route"""
     api_key = os.environ.get('EMERGENT_LLM_KEY')
     if not api_key:
         raise HTTPException(status_code=500, detail="AI service not configured")
@@ -235,8 +432,8 @@ async def recommend_station(request: RecommendationRequest):
     
     # Build context for AI
     stations_info = "\n".join([
-        f"- {s.name}: R$ {s.diesel_price:.2f}/L (Coordenadas: {s.latitude}, {s.longitude})"
-        for s in available_stations
+        f"- {s.name}: R$ {s.diesel_price:.2f}/L ({s.city or 'Localização não especificada'})"
+        for s in available_stations[:10]  # Limit to 10 stations
     ])
     
     chat = LlmChat(
@@ -245,20 +442,20 @@ async def recommend_station(request: RecommendationRequest):
         system_message="Você é um assistente especializado em logística de frotas. Responda de forma concisa e profissional em português."
     ).with_model("openai", "gpt-5.2")
     
-    prompt = f"""Analise os postos de combustível disponíveis e recomende o melhor para abastecimento:
+    prompt = f"""Analise os postos de combustível ao longo da rota e recomende o melhor para abastecimento:
 
 Autonomia atual do veículo: {autonomy:.1f} km
 Distância total da rota: {request.route_distance:.1f} km
 Capacidade do tanque: {request.vehicle.tank_capacity} litros
 Combustível atual: {request.vehicle.current_liters} litros
 
-Postos disponíveis:
+Postos disponíveis ao longo da rota:
 {stations_info}
 
-Recomende o posto com melhor custo-benefício considerando o preço do diesel. Responda em formato JSON com os campos:
-- station_name: nome do posto recomendado
-- reason: motivo da recomendação (máximo 2 frases)
-- savings_tip: dica de economia (1 frase)"""
+Recomende o posto com melhor custo-benefício considerando o preço do diesel e a localização na rota. Responda de forma direta com:
+1. Nome do posto recomendado
+2. Motivo da recomendação (máximo 2 frases)
+3. Uma dica de economia"""
 
     try:
         response = await chat.send_message(UserMessage(text=prompt))
@@ -347,32 +544,49 @@ async def seed_stations():
     """Populate database with sample fuel stations between Porto Alegre and São Paulo"""
     sample_stations = [
         {
-            "name": "Posto Ipiranga - Porto Alegre",
-            "latitude": -30.0346,
-            "longitude": -51.2177,
+            "name": "Posto Ipiranga - Zona Sul",
+            "latitude": -30.1087,
+            "longitude": -51.2217,
             "diesel_price": 5.89,
-            "is_active": True
+            "is_active": True,
+            "city": "Porto Alegre",
+            "address": "Av. Ipiranga, 6681"
         },
         {
-            "name": "Posto BR - Curitiba",
-            "latitude": -25.4284,
-            "longitude": -49.2733,
+            "name": "Auto Posto Curitiba Centro",
+            "latitude": -25.4290,
+            "longitude": -49.2671,
             "diesel_price": 5.75,
-            "is_active": True
+            "is_active": True,
+            "city": "Curitiba",
+            "address": "Rua XV de Novembro, 1234"
         },
         {
-            "name": "Posto Shell - Registro",
+            "name": "Posto BR Registro",
             "latitude": -24.4872,
             "longitude": -47.8439,
             "diesel_price": 5.65,
-            "is_active": True
+            "is_active": True,
+            "city": "Registro",
+            "address": "BR-116, km 432"
         },
         {
-            "name": "Posto Texaco - São Paulo",
+            "name": "Posto Shell Campinas",
+            "latitude": -22.9099,
+            "longitude": -47.0626,
+            "diesel_price": 5.78,
+            "is_active": True,
+            "city": "Campinas",
+            "address": "Rod. Anhanguera, km 98"
+        },
+        {
+            "name": "Posto Texaco São Paulo",
             "latitude": -23.5505,
             "longitude": -46.6333,
             "diesel_price": 5.95,
-            "is_active": True
+            "is_active": True,
+            "city": "São Paulo",
+            "address": "Av. Paulista, 1000"
         }
     ]
     
