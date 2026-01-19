@@ -253,6 +253,7 @@ class FleetFuelAPITester:
             self.test_health_endpoints()
             self.test_station_crud()
             self.test_route_calculation()
+            self.test_search_functionality()
             self.test_ai_recommendation()
             self.test_service_order_generation()
             
