@@ -122,27 +122,14 @@ class FleetFuelAPITester:
         self.run_test("Get Non-existent Station", "GET", "stations/non-existent-id", 404)
 
     def test_route_calculation(self):
-        """Test route calculation functionality"""
+        """Test route calculation functionality with city names"""
         print("\n=== TESTING ROUTE CALCULATION ===")
         
+        # Test with city names (new format)
         route_data = {
-            "origin": {
-                "name": "Porto Alegre",
-                "latitude": -30.0346,
-                "longitude": -51.2177
-            },
-            "destination": {
-                "name": "São Paulo", 
-                "latitude": -23.5505,
-                "longitude": -46.6333
-            },
-            "waypoints": [
-                {
-                    "name": "Curitiba",
-                    "latitude": -25.4284,
-                    "longitude": -49.2733
-                }
-            ],
+            "origin_city": "Porto Alegre, RS",
+            "destination_city": "São Paulo, SP",
+            "waypoint_cities": ["Curitiba, PR"],
             "vehicle": {
                 "current_liters": 200,
                 "consumption_rate": 2.5,
@@ -150,19 +137,43 @@ class FleetFuelAPITester:
             }
         }
         
-        success, route_result = self.run_test("Calculate Route", "POST", "calculate-route", 200, route_data)
+        success, route_result = self.run_test("Calculate Route (POA-SP)", "POST", "calculate-route", 200, route_data)
         
         if success:
             # Verify route result structure
-            required_fields = ['total_distance', 'autonomy', 'can_complete_route', 'route_points']
+            required_fields = ['total_distance', 'autonomy', 'can_complete_route', 'route_points', 'route_geometry']
             missing_fields = [field for field in required_fields if field not in route_result]
             if missing_fields:
                 print(f"⚠️  Missing fields in route result: {missing_fields}")
             else:
                 print(f"✅ Route calculation returned all required fields")
-                print(f"   Distance: {route_result.get('total_distance', 0)} km")
+                distance = route_result.get('total_distance', 0)
+                duration = route_result.get('duration_minutes', 0)
+                print(f"   Distance: {distance} km")
+                print(f"   Duration: {duration/60:.1f}h {duration%60:.0f}min")
                 print(f"   Autonomy: {route_result.get('autonomy', 0)} km")
                 print(f"   Can complete: {route_result.get('can_complete_route', False)}")
+                
+                # Check if distance is realistic for POA-SP (should be ~1128km via roads, not 852km straight line)
+                if distance > 1000 and distance < 1300:
+                    print(f"✅ Distance looks realistic for road route (not straight line)")
+                else:
+                    print(f"⚠️  Distance seems off - expected ~1128km for POA-SP via roads")
+                
+                # Check if duration is reasonable (should be 14+ hours)
+                if duration > 800:  # 13+ hours
+                    print(f"✅ Duration estimate looks reasonable")
+                else:
+                    print(f"⚠️  Duration seems too short for this distance")
+        
+        # Test geocoding endpoint
+        self.run_test("Geocode Porto Alegre", "GET", "geocode?query=Porto Alegre", 200)
+        
+        # Test stations along route (if route was successful)
+        if success and 'route_geometry' in route_result:
+            stations_success, stations_result = self.run_test("Get Stations Along Route", "POST", "stations-along-route?max_distance_km=50", 200, route_result['route_geometry'])
+            if stations_success:
+                print(f"✅ Found {len(stations_result)} stations along route")
 
     def test_ai_recommendation(self):
         """Test AI recommendation functionality"""
