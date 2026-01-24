@@ -411,6 +411,8 @@ export default function FleetDashboard() {
         theme={theme}
         onAskAI={handleAskAI}
         aiResponse={aiResponse}
+        onUpdateFuelPlan={handleUpdateFuelPlan}
+        onGenerateFullOrder={handleGenerateFullOrder}
       />
     </div>
   );
