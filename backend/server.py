@@ -1245,27 +1245,31 @@ async def generate_full_order(request: FullOrderRequest):
     for i, stop in enumerate(request.stops):
         station = stop.get('station', {})
         ordinal = ordinals[i] if i < len(ordinals) else f"{i+1}ª"
+        is_complete = stop.get('isComplete', False)
         
         # Get coordinates for maps link
         lat = station.get('latitude', 0)
         lng = station.get('longitude', 0)
         maps_link = f"https://maps.google.com/?q={lat},{lng}"
         
+        # Determine fuel instruction
+        if is_complete:
+            fuel_instruction = "COMPLETAR"
+        else:
+            fuel_instruction = f"{stop.get('fuel_to_add', 0):.0f}L"
+        
         lines.append(f"")
         lines.append(f"*{ordinal} abastecida*")
         lines.append(f"⛽ Posto: {station.get('name', 'N/A')}")
         lines.append(f"📌 Local: {station.get('city', 'N/A')}")
         lines.append(f"🛣️ Km {stop.get('distance_from_start', 0):.0f}")
-        lines.append(f"💧 Litros: {stop.get('fuel_to_add', 0):.0f}L")
-        lines.append(f"💰 Valor: R$ {stop.get('cost', 0):.2f}")
+        lines.append(f"💧 {fuel_instruction}")
         lines.append(f"🗺️ {maps_link}")
     
     lines.append(f"")
     lines.append(f"─────────────────")
     lines.append(f"*RESUMO:*")
-    lines.append(f"⛽ Total: {request.total_fuel:.0f}L")
-    lines.append(f"💵 Custo: R$ {request.total_cost:.2f}")
-    lines.append(f"📊 Média: R$ {(request.total_cost / request.total_fuel):.2f}/L")
+    lines.append(f"⛽ Total estimado: {request.total_fuel:.0f}L")
     
     message = "\n".join(lines)
     
