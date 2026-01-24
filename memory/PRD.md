@@ -1,4 +1,4 @@
-# SmartFuel - Sistema de Gestão de Abastecimento de Frota v2.5
+# Bartz - Sistema de Gestão de Abastecimento de Frota v2.5
 
 ## Problema Original
 Sistema inteligente de logística para controle de abastecimento de carretas de frota.
@@ -17,6 +17,7 @@ Sistema inteligente de logística para controle de abastecimento de carretas de 
   - Mostra "COMPLETAR" se marcado, ou quantidade de litros
   - SEM valor monetário na ordem (conforme solicitado)
 - **Postos limitados a 50km da rota** (antes era 100km)
+- **Renomeado de SmartFuel para Bartz**
 
 ### Versão 2.4 - Gestão de Plano ✅
 - Barra de pesquisa na lista de postos
