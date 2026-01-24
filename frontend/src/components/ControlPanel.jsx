@@ -850,7 +850,35 @@ export default function ControlPanel({
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  {stations.map((station) => {
+                  {/* Search Bar */}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      data-testid="input-station-search"
+                      placeholder="Buscar por cidade ou posto..."
+                      value={stationSearchQuery}
+                      onChange={(e) => setStationSearchQuery(e.target.value)}
+                      className="pl-9 bg-secondary border-white/10 text-sm"
+                    />
+                    {stationSearchQuery && (
+                      <button
+                        onClick={() => setStationSearchQuery("")}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Station Count */}
+                  {stationSearchQuery && (
+                    <div className="text-xs text-muted-foreground px-1">
+                      {filteredStations.length} posto(s) encontrado(s)
+                    </div>
+                  )}
+
+                  {/* Station Items */}
+                  {filteredStations.map((station) => {
                     const rating = station.ratings ? 
                       ((station.ratings.price_rating + station.ratings.service_rating + station.ratings.parking_rating + station.ratings.security_rating) / 4).toFixed(1) : 0;
                     const isActive = station.is_active !== false;
