@@ -1,31 +1,43 @@
-# SmartFuel - Sistema de Gestão de Abastecimento de Frota v2.2
+# SmartFuel - Sistema de Gestão de Abastecimento de Frota v2.3
 
 ## Problema Original
 Sistema inteligente de logística para controle de abastecimento de carretas de frota.
 
 ## O Que Foi Implementado
 
-### Versão 2.2 - Melhorias UX (24/01/2026) ✅
-- **Novo fluxo de criação de posto**:
-  - Botão "Novo Posto" no mapa (não cria ao clicar acidentalmente)
-  - Modo de criação com indicador visual e cursor crosshair
-  - Marcador arrastável para ajustar posição
-- **Toggle rápido Ativo/Inativo** na lista de postos
-- **Camadas de mapa**:
-  - Mapa, Satélite, Relevo, Híbrido
-  - Trânsito em tempo real
-- **Posto inativo**: marcador cinza, não considerado na IA
+### Versão 2.3 - Otimização para Carretas (24/01/2026) ✅
+- **Lógica de Abastecimento Otimizada**:
+  - Minimiza número de paradas (preferência por grandes abastecimentos)
+  - Abastecimento mínimo: 100 litros (não vale parar por menos)
+  - Parcial apenas quando há posto >5% mais barato adiante
+  - Chegada no destino com **20% de reserva** no tanque
+- **Consultor IA**:
+  - Botão "Consultar IA sobre este plano"
+  - Análise inteligente da rota e paradas
+  - Sugestões de otimização personalizadas
+- **Novos campos no plano**:
+  - Preço médio por litro
+  - Percentual do tanque na chegada
+  - Motivo de cada parada (parcial vs completo)
 
-### Versão 2.1 - Google Maps ✅
-- Google Maps visual (tema escuro)
-- Rotas corretas via Google Directions / OSRM fallback
-- Busca de cidades com autocomplete
+### Versão 2.2 - Melhorias UX ✅
+- Botão "Novo Posto" no mapa
+- Toggle rápido Ativo/Inativo na lista
+- Camadas: Mapa, Satélite, Relevo, Híbrido, Trânsito
 
-### Versão 2.0 - Funcionalidades ✅
-- Sistema de avaliação (4 categorias com estrelas)
+### Versões Anteriores ✅
+- Google Maps visual
+- Sistema de avaliação (4 categorias)
 - 6 temas visuais
-- Planejamento multi-abastecimento com IA
 - Ordens de serviço para WhatsApp
+
+## Regras de Abastecimento para Carretas
+```
+MIN_REFUEL_LITERS = 100        # Mínimo para parar
+DESTINATION_RESERVE = 20%      # Reserva no destino
+SAFETY_MARGIN = 50 km          # Nunca rodar vazio
+CHEAPER_THRESHOLD = 5%         # Diferença para abastecimento parcial
+```
 
 ## Stack Tecnológica
 - Frontend: React + Tailwind + @react-google-maps/api
@@ -36,11 +48,12 @@ Sistema inteligente de logística para controle de abastecimento de carretas de 
 ## APIs Disponíveis
 - `GET /api/stations` - Lista postos
 - `POST /api/stations` - Cria posto
-- `PUT /api/stations/{id}` - Atualiza posto (inclui is_active)
+- `PUT /api/stations/{id}` - Atualiza posto
 - `DELETE /api/stations/{id}` - Remove posto
 - `GET /api/search-cities?query=` - Busca cidades
 - `POST /api/calculate-route` - Calcula rota
-- `POST /api/plan-fuel-stops` - Planeja abastecimentos (ignora inativos)
+- `POST /api/plan-fuel-stops` - Planeja abastecimentos (otimizado)
+- `POST /api/ai-advisor` - **NOVO** Consultor IA
 - `POST /api/generate-service-order` - Gera ordem de serviço
 
 ## Próximas Tarefas (Backlog)
@@ -53,11 +66,11 @@ Sistema inteligente de logística para controle de abastecimento de carretas de 
 ```
 /app/
 ├── backend/
-│   ├── server.py (endpoints + lógica IA)
+│   ├── server.py (endpoints + lógica IA otimizada)
 │   └── .env (GOOGLE_MAPS_API_KEY, EMERGENT_LLM_KEY)
 ├── frontend/
 │   ├── src/components/MapView.jsx (Google Maps + controles)
-│   ├── src/components/ControlPanel.jsx (toggle ativo/inativo)
-│   └── src/pages/FleetDashboard.jsx
+│   ├── src/components/ControlPanel.jsx (+ botão IA)
+│   └── src/pages/FleetDashboard.jsx (+ handleAskAI)
 └── memory/PRD.md
 ```
