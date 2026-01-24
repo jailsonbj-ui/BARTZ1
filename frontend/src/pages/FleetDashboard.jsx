@@ -376,6 +376,8 @@ export default function FleetDashboard() {
         searchCities={searchCities}
         isLoading={isLoading}
         theme={theme}
+        onAskAI={handleAskAI}
+        aiResponse={aiResponse}
       />
     </div>
   );
