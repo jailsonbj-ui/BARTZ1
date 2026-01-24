@@ -14,6 +14,7 @@ import {
   Calculator, AlertTriangle, X, Search, Clock, Loader2, Star, Car, Shield, Sparkles, Pencil,
 } from "lucide-react";
 import debounce from "@/utils/debounce";
+import { STATION_ICONS, STATION_COLORS } from "./MapView";
 
 // Star Rating Component
 function StarRating({ value, onChange, label }) {
