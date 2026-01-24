@@ -149,6 +149,8 @@ export default function ControlPanel({
     city: "",
     ratings: { price_rating: 0, service_rating: 0, parking_rating: 0, security_rating: 0 },
     parking: { has_parking: true, parking_type: "free", min_fuel_liters: null },
+    marker_icon: "fuel",
+    marker_color: "orange",
   });
 
   const autonomy = vehicle.current_liters * vehicle.consumption_rate;
