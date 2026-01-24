@@ -820,115 +820,201 @@ def find_stations_in_range(stations: List[dict], route_geometry: List[List[float
 
 @api_router.post("/plan-fuel-stops")
 async def plan_fuel_stops(request: MultiStopPlanRequest):
-    """Plan multiple fuel stops for long routes"""
+    """
+    Plan multiple fuel stops for long routes - OPTIMIZED FOR TRUCKS
+    
+    Rules:
+    1. Minimize number of stops (prefer large refuels)
+    2. Minimum refuel: 100 liters (not worth stopping for less)
+    3. Partial refuel only if cheaper station ahead (>5% savings)
+    4. Arrive at destination with at least 20% tank capacity
+    5. Prioritize lowest price per liter
+    """
     api_key = os.environ.get('EMERGENT_LLM_KEY')
     
     route_distance = request.route_distance
     vehicle = request.vehicle
-    stations = request.stations
+    stations = [s for s in request.stations if s.get('is_active', True)]  # Only active stations
     route_geometry = request.route_geometry
     
-    logger.info(f"Planning fuel stops for {route_distance}km route with {len(stations)} stations")
+    logger.info(f"Planning fuel stops for {route_distance}km route with {len(stations)} active stations")
     
-    # Calculate autonomies
+    # Configuration for trucks
+    MIN_REFUEL_LITERS = 100  # Minimum worth stopping for
+    DESTINATION_RESERVE_PERCENT = 0.20  # 20% reserve at destination
+    SAFETY_MARGIN_KM = 50  # Don't run on empty
+    CHEAPER_THRESHOLD = 0.95  # 5% cheaper to justify partial fill
+    
+    # Calculate key values
     max_autonomy = vehicle.tank_capacity * vehicle.consumption_rate
+    destination_reserve_liters = vehicle.tank_capacity * DESTINATION_RESERVE_PERCENT
+    destination_reserve_km = destination_reserve_liters * vehicle.consumption_rate
+    
     current_fuel = vehicle.current_liters
-    current_autonomy = current_fuel * vehicle.consumption_rate
+    current_distance = 0
     
     fuel_stops = []
     gaps = []
-    current_distance = 0
-    safety_margin = 50
     
     iteration = 0
-    max_iterations = 20
+    max_iterations = 15  # Trucks shouldn't need more than 15 stops
     
     while current_distance < route_distance and iteration < max_iterations:
         iteration += 1
-        effective_autonomy = (current_fuel * vehicle.consumption_rate) - safety_margin
-        next_limit = current_distance + effective_autonomy
         
-        logger.info(f"Iteration {iteration}: at {current_distance}km, fuel {current_fuel}L, can reach {next_limit}km")
+        # Calculate how far we can go
+        effective_autonomy = (current_fuel * vehicle.consumption_rate) - SAFETY_MARGIN_KM
+        max_reach = current_distance + effective_autonomy
         
-        if next_limit >= route_distance:
-            logger.info("Can reach destination!")
+        # Calculate fuel at destination if we go straight
+        remaining_distance = route_distance - current_distance
+        fuel_at_destination = current_fuel - (remaining_distance / vehicle.consumption_rate)
+        
+        logger.info(f"Iteration {iteration}: at {current_distance:.0f}km, fuel {current_fuel:.0f}L, can reach {max_reach:.0f}km, dest fuel would be {fuel_at_destination:.0f}L")
+        
+        # Can we reach destination with 20% reserve?
+        if fuel_at_destination >= destination_reserve_liters:
+            logger.info(f"Can reach destination with {fuel_at_destination:.0f}L reserve!")
             break
         
-        # Search for stations in the reachable range
-        search_start = current_distance + 50  # Don't stop immediately
-        search_end = min(next_limit - 50, route_distance - 50)
+        # Need to stop - find the BEST station (lowest price) within our range
+        # Search from current position to max reach, but leave margin
+        search_start = current_distance + 100  # Don't stop immediately after starting
+        search_end = max_reach - SAFETY_MARGIN_KM
         
         if search_end <= search_start:
-            search_end = next_limit - 20
+            search_end = max_reach - 20
         
+        # Get all stations in range
         available_stations = find_stations_in_range(
-            stations, route_geometry, 
-            search_start, search_end, 
+            stations, route_geometry,
+            search_start, search_end,
             route_distance, max_deviation=100
         )
         
-        logger.info(f"Found {len(available_stations)} stations between {search_start}km and {search_end}km")
+        logger.info(f"Found {len(available_stations)} stations between {search_start:.0f}km and {search_end:.0f}km")
         
         if not available_stations:
-            # No station found - report gap and assume we find fuel somehow
+            # No station found - report gap
             gaps.append({
                 "start_km": int(search_start),
                 "end_km": int(search_end),
                 "suggestion": f"Cadastre um posto entre {int(search_start)}km e {int(search_end)}km da origem."
             })
+            # Assume we somehow get fuel and continue
             current_distance = search_end
-            current_fuel = vehicle.tank_capacity * 0.8
+            current_fuel = vehicle.tank_capacity * 0.7
             continue
         
-        # Pick the best station (first in sorted list)
-        best = available_stations[0]
-        stop_distance = best['distance_from_start']
+        # Sort by price (lowest first), then by score
+        available_stations.sort(key=lambda s: (s.get('diesel_price', 99), -s.get('score', 0)))
+        
+        # Find the cheapest station
+        best_station = available_stations[0]
+        best_price = best_station.get('diesel_price', 99)
+        stop_distance = best_station['distance_from_start']
         
         # Calculate fuel state at this stop
         distance_traveled = stop_distance - current_distance
         fuel_used = distance_traveled / vehicle.consumption_rate
         fuel_at_arrival = max(0, current_fuel - fuel_used)
         
-        # Check if there's a cheaper station further ahead
-        lookahead_start = stop_distance + 50
+        # Look ahead: is there a SIGNIFICANTLY cheaper station further?
+        # We can reach it if we fill up here
+        lookahead_start = stop_distance + 100
         lookahead_end = stop_distance + max_autonomy - 100
         
         future_stations = find_stations_in_range(
             stations, route_geometry,
-            lookahead_start, min(lookahead_end, route_distance),
+            lookahead_start, min(lookahead_end, route_distance - 50),
             route_distance, max_deviation=100
         )
         
-        cheaper_ahead = any(s.get('diesel_price', 99) < best.get('diesel_price', 0) * 0.95 for s in future_stations)
+        # Find if there's a much cheaper station ahead
+        cheaper_station = None
+        for fs in future_stations:
+            if fs.get('diesel_price', 99) < best_price * CHEAPER_THRESHOLD:
+                cheaper_station = fs
+                break
         
-        if cheaper_ahead and future_stations:
-            # Partial fill - just enough to reach cheaper station
-            next_stop_dist = future_stations[0]['distance_from_start']
-            km_to_next = next_stop_dist - stop_distance
-            fuel_needed = (km_to_next + safety_margin) / vehicle.consumption_rate
-            fuel_to_add = max(50, min(fuel_needed - fuel_at_arrival, vehicle.tank_capacity - fuel_at_arrival))
-            reason = f"Parcial - posto mais barato em {int(km_to_next)}km"
+        # Decide refuel strategy
+        if cheaper_station:
+            # PARTIAL FILL: Just enough to reach the cheaper station + safety
+            next_stop_dist = cheaper_station['distance_from_start']
+            km_to_cheaper = next_stop_dist - stop_distance
+            fuel_needed_to_reach = (km_to_cheaper + SAFETY_MARGIN_KM) / vehicle.consumption_rate
+            
+            fuel_to_add = max(MIN_REFUEL_LITERS, fuel_needed_to_reach - fuel_at_arrival)
+            fuel_to_add = min(fuel_to_add, vehicle.tank_capacity - fuel_at_arrival)
+            
+            price_diff = ((best_price - cheaper_station.get('diesel_price', 99)) / best_price) * 100
+            reason = f"Parcial ({fuel_to_add:.0f}L) - posto {price_diff:.1f}% mais barato em {km_to_cheaper:.0f}km"
         else:
-            # Fill up
+            # FULL FILL: This is the best option, fill up completely
             fuel_to_add = vehicle.tank_capacity - fuel_at_arrival
-            reason = "Completar tanque - melhor opção na região"
+            
+            # But check if we even need that much to finish the route with 20% reserve
+            remaining_after_stop = route_distance - stop_distance
+            fuel_needed_to_finish = (remaining_after_stop / vehicle.consumption_rate) + destination_reserve_liters
+            
+            if fuel_at_arrival + fuel_to_add > fuel_needed_to_finish + MIN_REFUEL_LITERS:
+                # We would have too much fuel - optimize
+                optimal_fuel = fuel_needed_to_finish - fuel_at_arrival
+                if optimal_fuel >= MIN_REFUEL_LITERS:
+                    fuel_to_add = optimal_fuel
+                    reason = f"Otimizado para chegar com {DESTINATION_RESERVE_PERCENT*100:.0f}% reserva"
+                else:
+                    # Not worth stopping for less than minimum
+                    # Check if we can skip this stop entirely
+                    can_reach_next = False
+                    for ns in future_stations:
+                        ns_dist = ns['distance_from_start']
+                        fuel_at_ns = fuel_at_arrival - ((ns_dist - stop_distance) / vehicle.consumption_rate)
+                        if fuel_at_ns > MIN_REFUEL_LITERS / vehicle.consumption_rate:
+                            can_reach_next = True
+                            break
+                    
+                    if can_reach_next and fuel_at_arrival * vehicle.consumption_rate > 150:
+                        # Skip this stop, continue to next
+                        logger.info(f"Skipping {best_station.get('name')} - not worth stopping")
+                        current_distance = stop_distance
+                        current_fuel = fuel_at_arrival
+                        continue
+                    
+                    fuel_to_add = vehicle.tank_capacity - fuel_at_arrival
+                    reason = "Completar tanque - melhor preço da região"
+            else:
+                reason = "Completar tanque - melhor preço da região"
         
+        # Ensure minimum refuel
+        if fuel_to_add < MIN_REFUEL_LITERS:
+            # Check if we really need to stop
+            fuel_to_dest = fuel_at_arrival - ((route_distance - stop_distance) / vehicle.consumption_rate)
+            if fuel_to_dest >= destination_reserve_liters:
+                # Can skip this stop
+                logger.info(f"Skipping stop - can reach destination with reserve")
+                current_distance = stop_distance
+                current_fuel = fuel_at_arrival
+                continue
+            fuel_to_add = MIN_REFUEL_LITERS
+        
+        # Add the stop
         fuel_stops.append({
             "station": {
-                "id": best.get('id'),
-                "name": best.get('name'),
-                "city": best.get('city'),
-                "diesel_price": best.get('diesel_price'),
-                "latitude": best.get('latitude'),
-                "longitude": best.get('longitude'),
-                "ratings": best.get('ratings', {}),
-                "score": best.get('score', 0)
+                "id": best_station.get('id'),
+                "name": best_station.get('name'),
+                "city": best_station.get('city'),
+                "diesel_price": best_station.get('diesel_price'),
+                "latitude": best_station.get('latitude'),
+                "longitude": best_station.get('longitude'),
+                "ratings": best_station.get('ratings', {}),
+                "score": best_station.get('score', 0)
             },
             "distance_from_start": round(stop_distance, 0),
             "fuel_at_arrival": round(fuel_at_arrival, 1),
             "fuel_to_add": round(fuel_to_add, 1),
             "fuel_after_stop": round(fuel_at_arrival + fuel_to_add, 1),
-            "cost": round(fuel_to_add * best.get('diesel_price', 5.5), 2),
+            "cost": round(fuel_to_add * best_station.get('diesel_price', 5.5), 2),
             "reason": reason
         })
         
@@ -936,33 +1022,51 @@ async def plan_fuel_stops(request: MultiStopPlanRequest):
         current_distance = stop_distance
         current_fuel = fuel_at_arrival + fuel_to_add
         
-        logger.info(f"Added stop at {best.get('name')} ({stop_distance}km), +{fuel_to_add}L")
+        logger.info(f"Added stop at {best_station.get('name')} ({stop_distance:.0f}km), +{fuel_to_add:.0f}L @ R${best_station.get('diesel_price')}/L")
+    
+    # Calculate final fuel at destination
+    final_distance = route_distance - current_distance
+    final_fuel = current_fuel - (final_distance / vehicle.consumption_rate)
     
     # Calculate totals
     total_fuel = sum(stop['fuel_to_add'] for stop in fuel_stops)
     total_cost = sum(stop['cost'] for stop in fuel_stops)
+    avg_price = total_cost / total_fuel if total_fuel > 0 else 0
     
-    logger.info(f"Plan complete: {len(fuel_stops)} stops, {total_fuel}L, R${total_cost}")
+    logger.info(f"Plan complete: {len(fuel_stops)} stops, {total_fuel:.0f}L, R${total_cost:.2f}, arrives with {final_fuel:.0f}L")
     
-    # Generate AI summary
+    # Generate AI analysis
     ai_summary = None
     if api_key and fuel_stops:
         try:
             chat = LlmChat(
                 api_key=api_key,
                 session_id=f"fuel-plan-{uuid.uuid4()}",
-                system_message="Você é um assistente de logística. Seja conciso."
+                system_message="Você é um especialista em logística de frotas de caminhões. Analise planos de abastecimento de forma concisa e profissional."
             ).with_model("openai", "gpt-5.2")
             
             stops_text = "\n".join([
-                f"- {stop['station']['name']} ({stop['station']['city']}): +{stop['fuel_to_add']:.0f}L = R${stop['cost']:.2f}"
+                f"- Km {stop['distance_from_start']:.0f}: {stop['station']['name']} ({stop['station']['city']}) - +{stop['fuel_to_add']:.0f}L @ R${stop['station']['diesel_price']:.2f} = R${stop['cost']:.2f}"
                 for stop in fuel_stops
             ])
             
-            prompt = f"""Resuma o plano de abastecimento ({route_distance:.0f}km):
+            prompt = f"""Analise este plano de abastecimento para carreta:
+
+ROTA: {route_distance:.0f}km
+TANQUE: {vehicle.tank_capacity}L | CONSUMO: {vehicle.consumption_rate}km/L
+COMBUSTÍVEL INICIAL: {vehicle.current_liters}L
+
+PARADAS PLANEJADAS:
 {stops_text}
-Total: {total_fuel:.0f}L / R${total_cost:.2f}
-(Máx 2 frases)"""
+
+TOTAIS:
+- {len(fuel_stops)} paradas
+- {total_fuel:.0f}L total
+- R$ {total_cost:.2f} custo total  
+- R$ {avg_price:.2f}/L preço médio
+- Chegada no destino com {final_fuel:.0f}L ({(final_fuel/vehicle.tank_capacity)*100:.0f}% do tanque)
+
+Dê sua avaliação em 2-3 frases: o plano está otimizado? Alguma sugestão?"""
             
             ai_summary = await chat.send_message(UserMessage(text=prompt))
         except Exception as e:
@@ -973,10 +1077,14 @@ Total: {total_fuel:.0f}L / R${total_cost:.2f}
         "total_stops": len(fuel_stops),
         "total_fuel_liters": round(total_fuel, 1),
         "total_cost": round(total_cost, 2),
+        "avg_price_per_liter": round(avg_price, 2),
+        "final_fuel_liters": round(final_fuel, 1),
+        "final_fuel_percent": round((final_fuel / vehicle.tank_capacity) * 100, 0),
         "gaps": gaps,
         "has_gaps": len(gaps) > 0,
         "ai_summary": ai_summary
     }
+
 
 # ========== SERVICE ORDER ==========
 
