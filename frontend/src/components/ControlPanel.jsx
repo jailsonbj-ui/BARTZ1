@@ -135,6 +135,7 @@ export default function ControlPanel({
   aiResponse,
   onUpdateFuelPlan,
   onGenerateFullOrder,
+  onToggleComplete,
 }) {
   const [copied, setCopied] = useState(false);
   const [stationSearchQuery, setStationSearchQuery] = useState("");
