@@ -237,6 +237,32 @@ export default function FleetDashboard() {
     setIsPanelOpen(true);
   };
 
+  const handleAskAI = async (currentFuelPlan) => {
+    if (!routeData) {
+      toast.error("Calcule uma rota primeiro!");
+      return;
+    }
+    
+    setIsLoading(true);
+    try {
+      const response = await axios.post(`${API}/ai-advisor`, {
+        route_distance: routeData.total_distance,
+        origin: originCity,
+        destination: destinationCity,
+        vehicle: vehicle,
+        fuel_plan: currentFuelPlan,
+      });
+      
+      setAiResponse(response.data.advice);
+      toast.success("Consulta concluída!");
+    } catch (error) {
+      console.error("Error asking AI:", error);
+      toast.error("Erro ao consultar IA");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const addWaypoint = () => setWaypointCities([...waypointCities, ""]);
   const removeWaypoint = (index) => setWaypointCities(waypointCities.filter((_, i) => i !== index));
   const updateWaypoint = (index, value) => setWaypointCities(waypointCities.map((wp, i) => (i === index ? value : wp)));
