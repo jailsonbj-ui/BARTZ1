@@ -3,41 +3,91 @@ import axios from "axios";
 import { toast } from "sonner";
 import MapView from "@/components/MapView";
 import ControlPanel from "@/components/ControlPanel";
-import { Fuel, PanelRightClose, PanelRightOpen, Map, Satellite } from "lucide-react";
+import { Fuel, PanelRightClose, PanelRightOpen, Palette } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+// Available themes
+const THEMES = {
+  dark: {
+    name: "Escuro",
+    bg: "bg-slate-950",
+    accent: "text-orange-500",
+    map: "dark"
+  },
+  ocean: {
+    name: "Oceano",
+    bg: "bg-blue-950",
+    accent: "text-cyan-400",
+    map: "dark"
+  },
+  forest: {
+    name: "Floresta",
+    bg: "bg-emerald-950",
+    accent: "text-emerald-400",
+    map: "dark"
+  },
+  sunset: {
+    name: "Pôr do Sol",
+    bg: "bg-amber-950",
+    accent: "text-amber-400",
+    map: "dark"
+  },
+  midnight: {
+    name: "Meia-Noite",
+    bg: "bg-indigo-950",
+    accent: "text-violet-400",
+    map: "dark"
+  },
+  light: {
+    name: "Claro",
+    bg: "bg-gray-100",
+    accent: "text-blue-600",
+    map: "streets"
+  }
+};
 
 export default function FleetDashboard() {
   const [stations, setStations] = useState([]);
   const [selectedStation, setSelectedStation] = useState(null);
   const [isPanelOpen, setIsPanelOpen] = useState(true);
   const [routeData, setRouteData] = useState(null);
-  const [mapStyle, setMapStyle] = useState("dark"); // dark, satellite, streets
+  const [mapStyle, setMapStyle] = useState("dark");
+  const [theme, setTheme] = useState("dark");
   const [vehicle, setVehicle] = useState({
     current_liters: 200,
     consumption_rate: 2.5,
-    tank_capacity: 400,
+    tank_capacity: 500,
   });
-  const [originCity, setOriginCity] = useState("Porto Alegre, RS");
-  const [destinationCity, setDestinationCity] = useState("São Paulo, SP");
+  const [originCity, setOriginCity] = useState("");
+  const [destinationCity, setDestinationCity] = useState("");
   const [waypointCities, setWaypointCities] = useState([]);
   const [recommendation, setRecommendation] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [serviceOrder, setServiceOrder] = useState(null);
-  const [stationsAlongRoute, setStationsAlongRoute] = useState([]);
+  const [fuelPlan, setFuelPlan] = useState(null);
 
-  // Fetch stations on mount
   useEffect(() => {
     fetchStations();
   }, []);
+
+  // Apply theme to document
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+  }, [theme]);
 
   const fetchStations = async () => {
     try {
       const response = await axios.get(`${API}/stations`);
       setStations(response.data);
       if (response.data.length === 0) {
-        // Seed sample data if empty
         await axios.post(`${API}/seed-stations`);
         const seededResponse = await axios.get(`${API}/stations`);
         setStations(seededResponse.data);
@@ -49,13 +99,25 @@ export default function FleetDashboard() {
     }
   };
 
+  const searchCities = async (query) => {
+    if (query.length < 2) return [];
+    try {
+      const response = await axios.get(`${API}/search-cities`, { params: { query } });
+      return response.data;
+    } catch (error) {
+      console.error("Error searching cities:", error);
+      return [];
+    }
+  };
+
   const calculateRoute = useCallback(async () => {
     if (!originCity.trim() || !destinationCity.trim()) {
-      toast.error("Informe origem e destino!");
+      toast.error("Selecione origem e destino!");
       return;
     }
     
     setIsLoading(true);
+    setFuelPlan(null);
     try {
       const response = await axios.post(`${API}/calculate-route`, {
         origin_city: originCity,
@@ -65,23 +127,12 @@ export default function FleetDashboard() {
       });
       setRouteData(response.data);
       
-      // Get stations along the route
-      if (response.data.route_geometry) {
-        try {
-          const stationsResponse = await axios.post(`${API}/stations-along-route`, response.data.route_geometry, {
-            params: { max_distance_km: 50 }
-          });
-          setStationsAlongRoute(stationsResponse.data);
-        } catch (e) {
-          console.error("Error getting stations along route:", e);
-        }
+      // Auto-plan fuel stops for long routes
+      if (response.data.total_distance > response.data.autonomy) {
+        await planFuelStops(response.data);
       }
       
-      if (!response.data.can_complete_route) {
-        toast.warning("Autonomia insuficiente para completar a rota!");
-      } else {
-        toast.success(`Rota calculada: ${response.data.total_distance.toFixed(0)} km via rodovias`);
-      }
+      toast.success(`Rota: ${response.data.total_distance.toFixed(0)} km`);
     } catch (error) {
       console.error("Error calculating route:", error);
       toast.error(error.response?.data?.detail || "Erro ao calcular rota");
@@ -90,60 +141,46 @@ export default function FleetDashboard() {
     }
   }, [originCity, destinationCity, waypointCities, vehicle]);
 
-  const getRecommendation = async () => {
-    if (!routeData) {
-      toast.error("Calcule a rota primeiro!");
-      return;
-    }
-    
+  const planFuelStops = async (routeInfo) => {
     setIsLoading(true);
     try {
-      const stationsToAnalyze = stationsAlongRoute.length > 0 ? stationsAlongRoute : stations;
-      const response = await axios.post(`${API}/recommend-station`, {
-        route_distance: routeData.total_distance,
+      const response = await axios.post(`${API}/plan-fuel-stops`, {
+        route_distance: routeInfo.total_distance,
+        route_geometry: routeInfo.route_geometry,
         vehicle,
-        stations: stationsToAnalyze,
-        route_geometry: routeData.route_geometry,
+        stations,
       });
-      setRecommendation(response.data);
-      toast.success("Recomendação gerada com IA!");
+      setFuelPlan(response.data);
+      
+      if (response.data.has_gaps) {
+        toast.warning(`Atenção: ${response.data.gaps.length} trecho(s) sem postos cadastrados`);
+      } else {
+        toast.success(`Plano: ${response.data.total_stops} paradas, R$ ${response.data.total_cost.toFixed(2)}`);
+      }
     } catch (error) {
-      console.error("Error getting recommendation:", error);
-      toast.error("Erro ao obter recomendação");
+      console.error("Error planning fuel stops:", error);
+      toast.error("Erro ao planejar abastecimentos");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const generateServiceOrder = async (station) => {
+  const generateServiceOrder = async (station, fuelAmount) => {
     setIsLoading(true);
     try {
       const response = await axios.post(`${API}/generate-service-order`, {
         station_name: station.name,
-        station_location: station.city || `Lat: ${station.latitude.toFixed(4)}, Lng: ${station.longitude.toFixed(4)}`,
+        station_location: station.city || `${station.latitude.toFixed(4)}, ${station.longitude.toFixed(4)}`,
         coordinates: `${station.latitude},${station.longitude}`,
-        fuel_amount: vehicle.tank_capacity - vehicle.current_liters,
+        fuel_amount: fuelAmount || (vehicle.tank_capacity - vehicle.current_liters),
       });
       setServiceOrder(response.data);
-      toast.success("Ordem de serviço gerada!");
+      toast.success("Ordem gerada!");
     } catch (error) {
       console.error("Error generating service order:", error);
-      toast.error("Erro ao gerar ordem de serviço");
+      toast.error("Erro ao gerar ordem");
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const searchStation = async (query) => {
-    try {
-      const response = await axios.get(`${API}/search-stations`, {
-        params: { query }
-      });
-      return response.data;
-    } catch (error) {
-      console.error("Error searching stations:", error);
-      toast.error("Erro na busca de postos");
-      return [];
     }
   };
 
@@ -151,7 +188,7 @@ export default function FleetDashboard() {
     try {
       const response = await axios.post(`${API}/stations`, stationData);
       setStations([...stations, response.data]);
-      toast.success("Posto criado com sucesso!");
+      toast.success("Posto criado!");
       return response.data;
     } catch (error) {
       console.error("Error creating station:", error);
@@ -193,78 +230,95 @@ export default function FleetDashboard() {
       name: "",
       diesel_price: 5.50,
       is_active: true,
+      ratings: { price_rating: 0, service_rating: 0, parking_rating: 0, security_rating: 0 },
+      parking: { has_parking: true, parking_type: "free", min_fuel_liters: null },
     });
     setIsPanelOpen(true);
   };
 
-  const addWaypoint = () => {
-    setWaypointCities([...waypointCities, ""]);
-  };
-
-  const removeWaypoint = (index) => {
-    setWaypointCities(waypointCities.filter((_, i) => i !== index));
-  };
-
-  const updateWaypoint = (index, value) => {
-    setWaypointCities(waypointCities.map((wp, i) => (i === index ? value : wp)));
-  };
+  const addWaypoint = () => setWaypointCities([...waypointCities, ""]);
+  const removeWaypoint = (index) => setWaypointCities(waypointCities.filter((_, i) => i !== index));
+  const updateWaypoint = (index, value) => setWaypointCities(waypointCities.map((wp, i) => (i === index ? value : wp)));
 
   const toggleMapStyle = () => {
     const styles = ["dark", "satellite", "streets"];
     const currentIndex = styles.indexOf(mapStyle);
-    const nextIndex = (currentIndex + 1) % styles.length;
-    setMapStyle(styles[nextIndex]);
+    setMapStyle(styles[(currentIndex + 1) % styles.length]);
   };
 
+  const currentTheme = THEMES[theme] || THEMES.dark;
+
   return (
-    <div data-testid="fleet-dashboard" className="relative h-screen w-screen overflow-hidden bg-background">
+    <div 
+      data-testid="fleet-dashboard" 
+      className={`relative h-screen w-screen overflow-hidden transition-colors duration-300 ${currentTheme.bg}`}
+    >
       {/* Header */}
-      <header className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-4 py-3 bg-background/80 backdrop-blur-md border-b border-white/5">
+      <header className={`absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-4 py-3 ${currentTheme.bg}/90 backdrop-blur-md border-b border-white/5`}>
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-primary/10">
-            <Fuel className="w-6 h-6 text-primary" />
+          <div className={`p-2 rounded-lg ${currentTheme.accent.replace('text-', 'bg-')}/10`}>
+            <Fuel className={`w-6 h-6 ${currentTheme.accent}`} />
           </div>
           <div>
-            <h1 className="font-heading text-xl font-bold tracking-tight uppercase text-foreground">
+            <h1 className={`font-heading text-xl font-bold tracking-tight uppercase ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
               SmartFuel
             </h1>
             <p className="text-xs text-muted-foreground">Sistema de Gestão de Abastecimento</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            data-testid="toggle-map-style-btn"
-            variant="ghost"
-            size="icon"
-            onClick={toggleMapStyle}
-            className="text-muted-foreground hover:text-foreground"
-            title={`Mapa: ${mapStyle === 'dark' ? 'Escuro' : mapStyle === 'satellite' ? 'Satélite' : 'Ruas'}`}
-          >
-            {mapStyle === 'satellite' ? <Satellite className="w-5 h-5" /> : <Map className="w-5 h-5" />}
-          </Button>
+          {/* Theme Selector */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                data-testid="theme-selector-btn"
+                variant="ghost"
+                size="icon"
+                className={`${theme === 'light' ? 'text-gray-700' : 'text-muted-foreground'} hover:text-foreground`}
+              >
+                <Palette className="w-5 h-5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="bg-popover border-white/10">
+              {Object.entries(THEMES).map(([key, t]) => (
+                <DropdownMenuItem
+                  key={key}
+                  onClick={() => {
+                    setTheme(key);
+                    setMapStyle(t.map);
+                  }}
+                  className={`cursor-pointer ${theme === key ? 'bg-accent' : ''}`}
+                >
+                  <div className={`w-3 h-3 rounded-full mr-2 ${t.bg}`} />
+                  {t.name}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           <Button
             data-testid="toggle-panel-btn"
             variant="ghost"
             size="icon"
             onClick={() => setIsPanelOpen(!isPanelOpen)}
-            className="text-muted-foreground hover:text-foreground"
+            className={`${theme === 'light' ? 'text-gray-700' : 'text-muted-foreground'} hover:text-foreground`}
           >
             {isPanelOpen ? <PanelRightClose className="w-5 h-5" /> : <PanelRightOpen className="w-5 h-5" />}
           </Button>
         </div>
       </header>
 
-      {/* Map Container */}
+      {/* Map */}
       <div className="absolute inset-0 pt-14">
         <MapView
           stations={stations}
           selectedStation={selectedStation}
           setSelectedStation={setSelectedStation}
           routeData={routeData}
-          recommendation={recommendation}
+          fuelPlan={fuelPlan}
           onMapClick={handleMapClick}
           mapStyle={mapStyle}
-          stationsAlongRoute={stationsAlongRoute}
+          theme={theme}
         />
       </div>
 
@@ -286,16 +340,15 @@ export default function FleetDashboard() {
         updateWaypoint={updateWaypoint}
         routeData={routeData}
         calculateRoute={calculateRoute}
-        recommendation={recommendation}
-        getRecommendation={getRecommendation}
+        fuelPlan={fuelPlan}
         serviceOrder={serviceOrder}
         generateServiceOrder={generateServiceOrder}
         createStation={createStation}
         updateStation={updateStation}
         deleteStation={deleteStation}
-        searchStation={searchStation}
+        searchCities={searchCities}
         isLoading={isLoading}
-        stationsAlongRoute={stationsAlongRoute}
+        theme={theme}
       />
     </div>
   );
