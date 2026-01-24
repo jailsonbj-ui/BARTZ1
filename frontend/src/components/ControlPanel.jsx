@@ -242,6 +242,8 @@ export default function ControlPanel({
         city: selectedStation.city || "",
         ratings: selectedStation.ratings || { price_rating: 0, service_rating: 0, parking_rating: 0, security_rating: 0 },
         parking: selectedStation.parking || { has_parking: true, parking_type: "free", min_fuel_liters: null },
+        marker_icon: selectedStation.marker_icon || "fuel",
+        marker_color: selectedStation.marker_color || "orange",
       });
     }
   }, [selectedStation]);
