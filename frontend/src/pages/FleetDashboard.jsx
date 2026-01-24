@@ -296,6 +296,21 @@ export default function FleetDashboard() {
     }
   };
 
+  const handleToggleComplete = (stopIndex, isComplete) => {
+    if (!fuelPlan?.stops) return;
+    
+    const newStops = [...fuelPlan.stops];
+    newStops[stopIndex] = {
+      ...newStops[stopIndex],
+      isComplete: isComplete,
+    };
+    
+    setFuelPlan({
+      ...fuelPlan,
+      stops: newStops,
+    });
+  };
+
   const addWaypoint = () => setWaypointCities([...waypointCities, ""]);
   const removeWaypoint = (index) => setWaypointCities(waypointCities.filter((_, i) => i !== index));
   const updateWaypoint = (index, value) => setWaypointCities(waypointCities.map((wp, i) => (i === index ? value : wp)));
