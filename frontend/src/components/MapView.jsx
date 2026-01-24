@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useCallback, useState } from "react";
-import { GoogleMap, useJsApiLoader, Marker, Polyline, InfoWindow } from "@react-google-maps/api";
-import { Fuel, MapPin, AlertTriangle, Navigation, Star, Loader2 } from "lucide-react";
+import { GoogleMap, useJsApiLoader, Marker, Polyline, InfoWindow, TrafficLayer } from "@react-google-maps/api";
+import { Fuel, MapPin, AlertTriangle, Star, Loader2, Plus, X, Layers, Map, Mountain, Car } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const GOOGLE_MAPS_KEY = process.env.REACT_APP_GOOGLE_MAPS_KEY;
 
@@ -38,8 +39,6 @@ const MAP_STYLES = {
     { featureType: "water", elementType: "geometry", stylers: [{ color: "#0e1626" }] },
     { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#4e6d70" }] },
   ],
-  satellite: [],
-  streets: [],
 };
 
 const getOverallRating = (ratings) => {
@@ -50,9 +49,12 @@ const getOverallRating = (ratings) => {
 
 // Custom marker icons using SVG data URLs
 const createStationMarkerIcon = (station, isPlannedStop, stopNumber) => {
-  const color = isPlannedStop ? "#10B981" : station.is_active ? "#F97316" : "#64748B";
+  const isActive = station.is_active !== false;
+  const color = isPlannedStop ? "#10B981" : isActive ? "#F97316" : "#64748B";
+  const opacity = isActive ? "1" : "0.6";
+  
   const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="40" height="50" viewBox="0 0 40 50">
+    <svg xmlns="http://www.w3.org/2000/svg" width="40" height="56" viewBox="0 0 40 56" opacity="${opacity}">
       <defs>
         <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
           <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000" flood-opacity="0.3"/>
@@ -61,8 +63,9 @@ const createStationMarkerIcon = (station, isPlannedStop, stopNumber) => {
       <circle cx="20" cy="20" r="16" fill="${color}" stroke="white" stroke-width="3" filter="url(#shadow)"/>
       <path d="M15 14h10v12h-10z M17 10h6v4h-6z M13 20h4v6h-4z" fill="white" opacity="0.9"/>
       ${isPlannedStop ? `<circle cx="32" cy="8" r="8" fill="#10B981" stroke="white" stroke-width="2"/><text x="32" y="12" text-anchor="middle" fill="white" font-size="10" font-weight="bold">${stopNumber}</text>` : ''}
+      ${!isActive ? `<line x1="8" y1="8" x2="32" y2="32" stroke="#EF4444" stroke-width="3"/>` : ''}
       <rect x="5" y="42" width="30" height="14" rx="3" fill="#0F172A"/>
-      <text x="20" y="52" text-anchor="middle" fill="#F97316" font-size="9" font-weight="bold" font-family="monospace">R$${station.diesel_price?.toFixed(2) || '0.00'}</text>
+      <text x="20" y="52" text-anchor="middle" fill="${isActive ? '#F97316' : '#64748B'}" font-size="9" font-weight="bold" font-family="monospace">R$${station.diesel_price?.toFixed(2) || '0.00'}</text>
     </svg>
   `;
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
@@ -94,18 +97,34 @@ const createRoutePointIcon = (type) => {
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 };
 
+const createNewStationIcon = () => {
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">
+      <circle cx="20" cy="20" r="18" fill="#10B981" stroke="white" stroke-width="3" stroke-dasharray="5,3"/>
+      <line x1="20" y1="10" x2="20" y2="30" stroke="white" stroke-width="3"/>
+      <line x1="10" y1="20" x2="30" y2="20" stroke="white" stroke-width="3"/>
+    </svg>
+  `;
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+};
+
 export default function MapView({
   stations,
   selectedStation,
   setSelectedStation,
   routeData,
   fuelPlan,
-  onMapClick,
+  onCreateStation,
   mapStyle = "dark",
   theme = "dark",
 }) {
   const [map, setMap] = useState(null);
   const [activeInfoWindow, setActiveInfoWindow] = useState(null);
+  const [isCreatingStation, setIsCreatingStation] = useState(false);
+  const [newStationPosition, setNewStationPosition] = useState(null);
+  const [showTraffic, setShowTraffic] = useState(false);
+  const [mapType, setMapType] = useState("roadmap"); // roadmap, satellite, terrain, hybrid
+  const [showLayersMenu, setShowLayersMenu] = useState(false);
 
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: GOOGLE_MAPS_KEY,
@@ -125,11 +144,11 @@ export default function MapView({
 
   const plannedStopIds = useMemo(() => {
     if (!fuelPlan?.stops) return new Map();
-    const map = new Map();
+    const stopMap = new Map();
     fuelPlan.stops.forEach((stop, index) => {
-      map.set(stop.station.id, index + 1);
+      stopMap.set(stop.station.id, index + 1);
     });
-    return map;
+    return stopMap;
   }, [fuelPlan]);
 
   // Fit bounds when route changes
@@ -152,22 +171,37 @@ export default function MapView({
   }, []);
 
   const handleMapClick = useCallback((e) => {
-    if (onMapClick && e.latLng) {
-      onMapClick({ lat: e.latLng.lat(), lng: e.latLng.lng() });
+    if (isCreatingStation && e.latLng) {
+      setNewStationPosition({ lat: e.latLng.lat(), lng: e.latLng.lng() });
     }
     setActiveInfoWindow(null);
-  }, [onMapClick]);
+  }, [isCreatingStation]);
+
+  const handleConfirmNewStation = () => {
+    if (newStationPosition && onCreateStation) {
+      onCreateStation(newStationPosition);
+      setIsCreatingStation(false);
+      setNewStationPosition(null);
+    }
+  };
+
+  const handleCancelCreation = () => {
+    setIsCreatingStation(false);
+    setNewStationPosition(null);
+  };
 
   const mapOptions = useMemo(() => ({
-    styles: mapStyle === "dark" ? MAP_STYLES.dark : [],
-    mapTypeId: mapStyle === "satellite" ? "satellite" : "roadmap",
-    disableDefaultUI: false,
+    styles: mapType === "roadmap" && mapStyle === "dark" ? MAP_STYLES.dark : [],
+    mapTypeId: mapType,
+    disableDefaultUI: true,
     zoomControl: true,
-    mapTypeControl: true,
+    mapTypeControl: false,
     streetViewControl: false,
     fullscreenControl: true,
     clickableIcons: false,
-  }), [mapStyle]);
+    draggableCursor: isCreatingStation ? "crosshair" : "grab",
+    draggingCursor: isCreatingStation ? "crosshair" : "grabbing",
+  }), [mapStyle, mapType, isCreatingStation]);
 
   // Convert route geometry to Google Maps path format
   const routePath = useMemo(() => {
@@ -202,182 +236,302 @@ export default function MapView({
   }
 
   return (
-    <GoogleMap
-      mapContainerStyle={mapContainerStyle}
-      center={center}
-      zoom={6}
-      onLoad={onLoad}
-      onUnmount={onUnmount}
-      onClick={handleMapClick}
-      options={mapOptions}
-    >
-      {/* Route Polyline */}
-      {routePath.length > 1 && (
-        <Polyline
-          path={routePath}
-          options={{
-            strokeColor: "#F97316",
-            strokeOpacity: 0.9,
-            strokeWeight: 5,
-          }}
-        />
-      )}
+    <div className="relative h-full w-full">
+      <GoogleMap
+        mapContainerStyle={mapContainerStyle}
+        center={center}
+        zoom={6}
+        onLoad={onLoad}
+        onUnmount={onUnmount}
+        onClick={handleMapClick}
+        options={mapOptions}
+      >
+        {/* Traffic Layer */}
+        {showTraffic && <TrafficLayer />}
 
-      {/* Route Points (Origin, Destination, Waypoints) */}
-      {routeData?.route_points?.map((point, index) => {
-        const type = index === 0 ? "origin" : index === routeData.route_points.length - 1 ? "destination" : "waypoint";
-        return (
+        {/* Route Polyline */}
+        {routePath.length > 1 && (
+          <Polyline
+            path={routePath}
+            options={{
+              strokeColor: "#F97316",
+              strokeOpacity: 0.9,
+              strokeWeight: 5,
+            }}
+          />
+        )}
+
+        {/* Route Points (Origin, Destination, Waypoints) */}
+        {routeData?.route_points?.map((point, index) => {
+          const type = index === 0 ? "origin" : index === routeData.route_points.length - 1 ? "destination" : "waypoint";
+          return (
+            <Marker
+              key={`route-point-${index}`}
+              position={{ lat: point.lat, lng: point.lng }}
+              icon={{
+                url: createRoutePointIcon(type),
+                scaledSize: new window.google.maps.Size(32, 32),
+                anchor: new window.google.maps.Point(16, 16),
+              }}
+              onClick={() => setActiveInfoWindow(`route-${index}`)}
+            >
+              {activeInfoWindow === `route-${index}` && (
+                <InfoWindow onCloseClick={() => setActiveInfoWindow(null)}>
+                  <div className="p-1">
+                    <div className="font-medium text-sm text-gray-900">{point.name}</div>
+                    <div className="text-xs text-gray-500">
+                      {index === 0 ? "Origem" : index === routeData.route_points.length - 1 ? "Destino" : `Parada ${index}`}
+                    </div>
+                  </div>
+                </InfoWindow>
+              )}
+            </Marker>
+          );
+        })}
+
+        {/* Fuel Limit Point */}
+        {routeData?.fuel_limit_point && !fuelPlan && (
           <Marker
-            key={`route-point-${index}`}
-            position={{ lat: point.lat, lng: point.lng }}
+            position={{
+              lat: routeData.fuel_limit_point.latitude,
+              lng: routeData.fuel_limit_point.longitude,
+            }}
             icon={{
-              url: createRoutePointIcon(type),
+              url: createRoutePointIcon("fuelLimit"),
               scaledSize: new window.google.maps.Size(32, 32),
               anchor: new window.google.maps.Point(16, 16),
             }}
-            onClick={() => setActiveInfoWindow(`route-${index}`)}
+            onClick={() => setActiveInfoWindow("fuelLimit")}
           >
-            {activeInfoWindow === `route-${index}` && (
+            {activeInfoWindow === "fuelLimit" && (
               <InfoWindow onCloseClick={() => setActiveInfoWindow(null)}>
                 <div className="p-1">
-                  <div className="font-medium text-sm text-gray-900">{point.name}</div>
+                  <div className="font-medium text-sm text-red-600">Limite de Combustível</div>
                   <div className="text-xs text-gray-500">
-                    {index === 0 ? "Origem" : index === routeData.route_points.length - 1 ? "Destino" : `Parada ${index}`}
+                    {routeData.fuel_limit_point.distance_from_origin} km da origem
                   </div>
                 </div>
               </InfoWindow>
             )}
           </Marker>
-        );
-      })}
+        )}
 
-      {/* Fuel Limit Point */}
-      {routeData?.fuel_limit_point && !fuelPlan && (
-        <Marker
-          position={{
-            lat: routeData.fuel_limit_point.latitude,
-            lng: routeData.fuel_limit_point.longitude,
-          }}
-          icon={{
-            url: createRoutePointIcon("fuelLimit"),
-            scaledSize: new window.google.maps.Size(32, 32),
-            anchor: new window.google.maps.Point(16, 16),
-          }}
-          onClick={() => setActiveInfoWindow("fuelLimit")}
-        >
-          {activeInfoWindow === "fuelLimit" && (
-            <InfoWindow onCloseClick={() => setActiveInfoWindow(null)}>
-              <div className="p-1">
-                <div className="font-medium text-sm text-red-600">Limite de Combustível</div>
-                <div className="text-xs text-gray-500">
-                  {routeData.fuel_limit_point.distance_from_origin} km da origem
-                </div>
-              </div>
-            </InfoWindow>
+        {/* Gap indicators */}
+        {fuelPlan?.gaps?.map((gap, index) => {
+          const gapPosition = routeData?.route_geometry?.[
+            Math.floor(routeData.route_geometry.length * (gap.start_km / routeData.total_distance))
+          ];
+          if (!gapPosition) return null;
+          
+          return (
+            <Marker
+              key={`gap-${index}`}
+              position={{ lat: gapPosition[0], lng: gapPosition[1] }}
+              icon={{
+                url: createRoutePointIcon("fuelLimit"),
+                scaledSize: new window.google.maps.Size(28, 28),
+                anchor: new window.google.maps.Point(14, 14),
+              }}
+              onClick={() => setActiveInfoWindow(`gap-${index}`)}
+            >
+              {activeInfoWindow === `gap-${index}` && (
+                <InfoWindow onCloseClick={() => setActiveInfoWindow(null)}>
+                  <div className="p-1 max-w-xs">
+                    <div className="font-medium text-sm text-red-600">Trecho sem postos</div>
+                    <div className="text-xs text-gray-700">{gap.start_km}km - {gap.end_km}km</div>
+                    <div className="text-xs text-gray-500 mt-1">{gap.suggestion}</div>
+                  </div>
+                </InfoWindow>
+              )}
+            </Marker>
+          );
+        })}
+
+        {/* Station Markers */}
+        {stations.map((station) => {
+          const stopNumber = plannedStopIds.get(station.id);
+          const isPlannedStop = !!stopNumber;
+          
+          return (
+            <Marker
+              key={station.id}
+              position={{ lat: station.latitude, lng: station.longitude }}
+              icon={{
+                url: createStationMarkerIcon(station, isPlannedStop, stopNumber),
+                scaledSize: new window.google.maps.Size(40, 56),
+                anchor: new window.google.maps.Point(20, 50),
+              }}
+              onClick={() => {
+                setSelectedStation(station);
+                setActiveInfoWindow(`station-${station.id}`);
+              }}
+            >
+              {activeInfoWindow === `station-${station.id}` && (
+                <InfoWindow onCloseClick={() => setActiveInfoWindow(null)}>
+                  <div className="p-2 min-w-[180px]">
+                    <div className="font-medium text-sm text-gray-900">{station.name}</div>
+                    {station.city && <div className="text-xs text-gray-500">{station.city}</div>}
+                    <div className="text-orange-600 font-mono font-bold text-lg mt-1">
+                      R$ {station.diesel_price?.toFixed(2)}/L
+                    </div>
+                    {!station.is_active && (
+                      <div className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded mt-1 inline-block">
+                        INATIVO
+                      </div>
+                    )}
+                    {station.ratings && (
+                      <div className="flex items-center gap-1 text-xs mt-1">
+                        <Star size={12} className="text-yellow-500 fill-yellow-500" />
+                        <span className="text-gray-700">{getOverallRating(station.ratings)}</span>
+                      </div>
+                    )}
+                    {isPlannedStop && (
+                      <div className="mt-2 text-xs bg-green-100 text-green-700 px-2 py-1 rounded inline-block">
+                        Parada #{stopNumber} do plano
+                      </div>
+                    )}
+                  </div>
+                </InfoWindow>
+              )}
+            </Marker>
+          );
+        })}
+
+        {/* New Station Marker (when creating) */}
+        {newStationPosition && (
+          <Marker
+            position={newStationPosition}
+            icon={{
+              url: createNewStationIcon(),
+              scaledSize: new window.google.maps.Size(40, 40),
+              anchor: new window.google.maps.Point(20, 20),
+            }}
+            draggable={true}
+            onDragEnd={(e) => {
+              if (e.latLng) {
+                setNewStationPosition({ lat: e.latLng.lat(), lng: e.latLng.lng() });
+              }
+            }}
+          />
+        )}
+      </GoogleMap>
+
+      {/* Map Controls Overlay */}
+      <div className="absolute top-4 left-4 flex flex-col gap-2 z-10">
+        {/* Add Station Button */}
+        {!isCreatingStation ? (
+          <Button
+            data-testid="btn-add-station-map"
+            onClick={() => setIsCreatingStation(true)}
+            className="bg-green-600 hover:bg-green-700 text-white shadow-lg"
+            size="sm"
+          >
+            <Plus className="w-4 h-4 mr-1" /> Novo Posto
+          </Button>
+        ) : (
+          <div className="bg-slate-900/95 backdrop-blur-sm rounded-lg p-3 shadow-lg border border-green-500/50">
+            <div className="text-sm text-white mb-2 flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-green-400" />
+              {newStationPosition ? "Arraste para ajustar" : "Clique no mapa"}
+            </div>
+            <div className="flex gap-2">
+              {newStationPosition && (
+                <Button
+                  data-testid="btn-confirm-station"
+                  onClick={handleConfirmNewStation}
+                  size="sm"
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  Confirmar
+                </Button>
+              )}
+              <Button
+                data-testid="btn-cancel-station"
+                onClick={handleCancelCreation}
+                size="sm"
+                variant="outline"
+                className="border-red-500/50 text-red-400 hover:bg-red-500/10"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Layers Control */}
+        <div className="relative">
+          <Button
+            data-testid="btn-layers"
+            onClick={() => setShowLayersMenu(!showLayersMenu)}
+            variant="secondary"
+            size="sm"
+            className="bg-slate-900/90 hover:bg-slate-800 text-white shadow-lg"
+          >
+            <Layers className="w-4 h-4 mr-1" /> Camadas
+          </Button>
+
+          {showLayersMenu && (
+            <div className="absolute top-full left-0 mt-2 bg-slate-900/95 backdrop-blur-sm rounded-lg p-2 shadow-lg border border-white/10 min-w-[160px]">
+              <div className="text-xs text-gray-400 px-2 mb-2 uppercase tracking-wide">Tipo de Mapa</div>
+              
+              <button
+                onClick={() => setMapType("roadmap")}
+                className={`w-full flex items-center gap-2 px-3 py-2 rounded text-sm transition-colors ${
+                  mapType === "roadmap" ? "bg-primary/20 text-primary" : "text-white hover:bg-white/10"
+                }`}
+              >
+                <Map className="w-4 h-4" /> Mapa
+              </button>
+              
+              <button
+                onClick={() => setMapType("satellite")}
+                className={`w-full flex items-center gap-2 px-3 py-2 rounded text-sm transition-colors ${
+                  mapType === "satellite" ? "bg-primary/20 text-primary" : "text-white hover:bg-white/10"
+                }`}
+              >
+                <MapPin className="w-4 h-4" /> Satélite
+              </button>
+              
+              <button
+                onClick={() => setMapType("terrain")}
+                className={`w-full flex items-center gap-2 px-3 py-2 rounded text-sm transition-colors ${
+                  mapType === "terrain" ? "bg-primary/20 text-primary" : "text-white hover:bg-white/10"
+                }`}
+              >
+                <Mountain className="w-4 h-4" /> Relevo
+              </button>
+              
+              <button
+                onClick={() => setMapType("hybrid")}
+                className={`w-full flex items-center gap-2 px-3 py-2 rounded text-sm transition-colors ${
+                  mapType === "hybrid" ? "bg-primary/20 text-primary" : "text-white hover:bg-white/10"
+                }`}
+              >
+                <Layers className="w-4 h-4" /> Híbrido
+              </button>
+
+              <div className="border-t border-white/10 my-2" />
+              <div className="text-xs text-gray-400 px-2 mb-2 uppercase tracking-wide">Camadas</div>
+              
+              <button
+                onClick={() => setShowTraffic(!showTraffic)}
+                className={`w-full flex items-center gap-2 px-3 py-2 rounded text-sm transition-colors ${
+                  showTraffic ? "bg-primary/20 text-primary" : "text-white hover:bg-white/10"
+                }`}
+              >
+                <Car className="w-4 h-4" /> Trânsito {showTraffic && "✓"}
+              </button>
+            </div>
           )}
-        </Marker>
+        </div>
+      </div>
+
+      {/* Creation Mode Indicator */}
+      {isCreatingStation && (
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-green-600 text-white px-4 py-2 rounded-full shadow-lg text-sm font-medium animate-pulse">
+          Modo de Criação Ativo - Clique no mapa para posicionar
+        </div>
       )}
-
-      {/* Gap indicators */}
-      {fuelPlan?.gaps?.map((gap, index) => {
-        const gapPosition = routeData?.route_geometry?.[
-          Math.floor(routeData.route_geometry.length * (gap.start_km / routeData.total_distance))
-        ];
-        if (!gapPosition) return null;
-        
-        return (
-          <Marker
-            key={`gap-${index}`}
-            position={{ lat: gapPosition[0], lng: gapPosition[1] }}
-            icon={{
-              url: createRoutePointIcon("fuelLimit"),
-              scaledSize: new window.google.maps.Size(28, 28),
-              anchor: new window.google.maps.Point(14, 14),
-            }}
-            onClick={() => setActiveInfoWindow(`gap-${index}`)}
-          >
-            {activeInfoWindow === `gap-${index}` && (
-              <InfoWindow onCloseClick={() => setActiveInfoWindow(null)}>
-                <div className="p-1 max-w-xs">
-                  <div className="font-medium text-sm text-red-600">Trecho sem postos</div>
-                  <div className="text-xs text-gray-700">{gap.start_km}km - {gap.end_km}km</div>
-                  <div className="text-xs text-gray-500 mt-1">{gap.suggestion}</div>
-                </div>
-              </InfoWindow>
-            )}
-          </Marker>
-        );
-      })}
-
-      {/* Station Markers */}
-      {stations.map((station) => {
-        const stopNumber = plannedStopIds.get(station.id);
-        const isPlannedStop = !!stopNumber;
-        
-        return (
-          <Marker
-            key={station.id}
-            position={{ lat: station.latitude, lng: station.longitude }}
-            icon={{
-              url: createStationMarkerIcon(station, isPlannedStop, stopNumber),
-              scaledSize: new window.google.maps.Size(40, 56),
-              anchor: new window.google.maps.Point(20, 50),
-            }}
-            onClick={() => {
-              setSelectedStation(station);
-              setActiveInfoWindow(`station-${station.id}`);
-            }}
-          >
-            {activeInfoWindow === `station-${station.id}` && (
-              <InfoWindow onCloseClick={() => setActiveInfoWindow(null)}>
-                <div className="p-2 min-w-[180px]">
-                  <div className="font-medium text-sm text-gray-900">{station.name}</div>
-                  {station.city && <div className="text-xs text-gray-500">{station.city}</div>}
-                  <div className="text-orange-600 font-mono font-bold text-lg mt-1">
-                    R$ {station.diesel_price?.toFixed(2)}/L
-                  </div>
-                  {station.ratings && (
-                    <div className="flex items-center gap-1 text-xs mt-1">
-                      <Star size={12} className="text-yellow-500 fill-yellow-500" />
-                      <span className="text-gray-700">{getOverallRating(station.ratings)}</span>
-                      <span className="text-gray-400">
-                        ({station.ratings.price_rating}P {station.ratings.service_rating}A {station.ratings.parking_rating}E {station.ratings.security_rating}S)
-                      </span>
-                    </div>
-                  )}
-                  {station.parking && (
-                    <div className="text-xs text-gray-500 mt-1">
-                      Estacionamento:{" "}
-                      {station.parking.parking_type === "free"
-                        ? "Grátis"
-                        : station.parking.parking_type === "paid"
-                        ? "Pago"
-                        : `Min. ${station.parking.min_fuel_liters}L`}
-                    </div>
-                  )}
-                  {isPlannedStop && (
-                    <div className="mt-2 text-xs bg-green-100 text-green-700 px-2 py-1 rounded inline-block">
-                      Parada #{stopNumber} do plano
-                    </div>
-                  )}
-                </div>
-              </InfoWindow>
-            )}
-          </Marker>
-        );
-      })}
-
-      {/* New Station Marker */}
-      {selectedStation?.isNew && (
-        <Marker
-          position={{ lat: selectedStation.latitude, lng: selectedStation.longitude }}
-          icon={{
-            url: createStationMarkerIcon({ ...selectedStation, is_active: true }, false),
-            scaledSize: new window.google.maps.Size(40, 56),
-            anchor: new window.google.maps.Point(20, 50),
-          }}
-        />
-      )}
-    </GoogleMap>
+    </div>
   );
 }
