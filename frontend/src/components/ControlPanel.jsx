@@ -343,22 +343,36 @@ export default function ControlPanel({
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    <div className="grid grid-cols-3 gap-2 text-center">
+                    {/* Summary Stats */}
+                    <div className="grid grid-cols-4 gap-2 text-center">
                       <div className="bg-secondary/50 rounded p-2">
                         <div className="text-lg font-bold text-green-400">{fuelPlan.total_stops}</div>
                         <div className="text-xs text-muted-foreground">Paradas</div>
                       </div>
                       <div className="bg-secondary/50 rounded p-2">
-                        <div className="text-lg font-bold text-blue-400">{fuelPlan.total_fuel_liters.toFixed(0)}L</div>
+                        <div className="text-lg font-bold text-blue-400">{fuelPlan.total_fuel_liters?.toFixed(0) || 0}L</div>
                         <div className="text-xs text-muted-foreground">Total</div>
                       </div>
                       <div className="bg-secondary/50 rounded p-2">
-                        <div className="text-lg font-bold text-yellow-400">R${fuelPlan.total_cost.toFixed(0)}</div>
+                        <div className="text-lg font-bold text-yellow-400">R${fuelPlan.total_cost?.toFixed(0) || 0}</div>
                         <div className="text-xs text-muted-foreground">Custo</div>
+                      </div>
+                      <div className="bg-secondary/50 rounded p-2">
+                        <div className="text-lg font-bold text-cyan-400">{fuelPlan.final_fuel_percent || 0}%</div>
+                        <div className="text-xs text-muted-foreground">Chegada</div>
                       </div>
                     </div>
 
-                    {fuelPlan.stops.map((stop, index) => (
+                    {/* Average Price */}
+                    {fuelPlan.avg_price_per_liter && (
+                      <div className="flex items-center justify-between text-xs bg-secondary/30 rounded px-3 py-2">
+                        <span className="text-muted-foreground">Preço médio:</span>
+                        <span className="font-mono font-bold text-primary">R$ {fuelPlan.avg_price_per_liter.toFixed(2)}/L</span>
+                      </div>
+                    )}
+
+                    {/* Stops List */}
+                    {fuelPlan.stops?.map((stop, index) => (
                       <div key={index} className="bg-secondary/30 rounded-lg p-3 space-y-2">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
@@ -371,8 +385,8 @@ export default function ControlPanel({
                             </div>
                           </div>
                           <div className="text-right">
-                            <div className="font-mono text-green-400">+{stop.fuel_to_add.toFixed(0)}L</div>
-                            <div className="text-xs text-muted-foreground">R${stop.cost.toFixed(2)}</div>
+                            <div className="font-mono text-green-400">+{stop.fuel_to_add?.toFixed(0) || 0}L</div>
+                            <div className="text-xs text-muted-foreground">R${stop.cost?.toFixed(2) || '0.00'}</div>
                           </div>
                         </div>
                         <div className="text-xs text-muted-foreground">{stop.reason}</div>
@@ -387,6 +401,7 @@ export default function ControlPanel({
                       </div>
                     ))}
 
+                    {/* Gaps Warning */}
                     {fuelPlan.gaps?.length > 0 && (
                       <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 space-y-2">
                         <div className="flex items-center gap-2 text-red-400 font-medium text-sm">
@@ -400,11 +415,29 @@ export default function ControlPanel({
                       </div>
                     )}
 
+                    {/* AI Summary */}
                     {fuelPlan.ai_summary && (
-                      <div className="text-sm text-muted-foreground bg-secondary/50 rounded-lg p-3">
-                        {fuelPlan.ai_summary}
+                      <div className="bg-gradient-to-r from-violet-500/10 to-purple-500/10 border border-violet-500/30 rounded-lg p-3">
+                        <div className="flex items-center gap-2 text-violet-400 font-medium text-xs mb-2">
+                          <Sparkles className="w-3 h-3" /> Análise da IA
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {fuelPlan.ai_summary}
+                        </div>
                       </div>
                     )}
+
+                    {/* AI Advisor Button */}
+                    <Button
+                      data-testid="btn-ai-advisor"
+                      onClick={() => onAskAI && onAskAI(fuelPlan)}
+                      variant="outline"
+                      className="w-full border-violet-500/50 text-violet-400 hover:bg-violet-500/10"
+                      disabled={isLoading}
+                    >
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      Consultar IA sobre este plano
+                    </Button>
                   </CardContent>
                 </Card>
               )}
