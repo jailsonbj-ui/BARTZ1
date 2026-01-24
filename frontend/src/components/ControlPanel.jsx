@@ -459,18 +459,70 @@ export default function ControlPanel({
                     {fuelPlan.stops?.map((stop, index) => (
                       <div key={index} className="bg-secondary/30 rounded-lg p-3 space-y-2">
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <div className="bg-green-500 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">
+                          <div className="flex items-center gap-2 flex-1">
+                            <div className="bg-green-500 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center shrink-0">
                               {index + 1}
                             </div>
-                            <div>
-                              <div className="font-medium text-sm">{stop.station.name}</div>
+                            <div className="min-w-0">
+                              <div className="font-medium text-sm truncate">{stop.station.name}</div>
                               <div className="text-xs text-muted-foreground">{stop.station.city} • {stop.distance_from_start}km</div>
                             </div>
                           </div>
-                          <div className="text-right">
-                            <div className="font-mono text-green-400">+{stop.fuel_to_add?.toFixed(0) || 0}L</div>
-                            <div className="text-xs text-muted-foreground">R${stop.cost?.toFixed(2) || '0.00'}</div>
+                          <div className="flex items-center gap-2">
+                            {/* Editable Liters */}
+                            {editingStopIndex === index ? (
+                              <div className="flex items-center gap-1">
+                                <Input
+                                  type="number"
+                                  value={editingLiters}
+                                  onChange={(e) => setEditingLiters(Number(e.target.value))}
+                                  className="w-20 h-7 text-xs"
+                                  min={50}
+                                  max={500}
+                                />
+                                <Button
+                                  size="sm"
+                                  className="h-7 w-7 p-0 bg-green-600 hover:bg-green-700"
+                                  onClick={() => handleUpdateLiters(index, editingLiters)}
+                                >
+                                  <Check className="w-3 h-3" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 w-7 p-0"
+                                  onClick={() => setEditingStopIndex(null)}
+                                >
+                                  <X className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <div 
+                                className="text-right cursor-pointer hover:bg-white/5 rounded px-2 py-1 transition-colors"
+                                onClick={() => {
+                                  setEditingStopIndex(index);
+                                  setEditingLiters(stop.fuel_to_add || 0);
+                                }}
+                                title="Clique para editar"
+                              >
+                                <div className="font-mono text-green-400 flex items-center gap-1">
+                                  +{stop.fuel_to_add?.toFixed(0) || 0}L
+                                  <Pencil className="w-3 h-3 opacity-50" />
+                                </div>
+                                <div className="text-xs text-muted-foreground">R${stop.cost?.toFixed(2) || '0.00'}</div>
+                              </div>
+                            )}
+                            {/* Remove Button */}
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 p-0 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                              onClick={() => handleRemoveStop(index)}
+                              title="Remover parada"
+                              disabled={fuelPlan.stops.length <= 1}
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
                           </div>
                         </div>
                         <div className="text-xs text-muted-foreground">{stop.reason}</div>
