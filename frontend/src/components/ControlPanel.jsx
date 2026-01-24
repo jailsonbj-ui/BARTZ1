@@ -590,6 +590,17 @@ export default function ControlPanel({
                       )}
                       {aiResponse ? "Consultar novamente" : "Consultar IA sobre este plano"}
                     </Button>
+
+                    {/* Generate Full Order Button */}
+                    <Button
+                      data-testid="btn-generate-full-order"
+                      onClick={() => onGenerateFullOrder && onGenerateFullOrder(fuelPlan)}
+                      className="w-full bg-green-600 hover:bg-green-700"
+                      disabled={isLoading}
+                    >
+                      <Send className="w-4 h-4 mr-2" />
+                      Gerar Ordem de Abastecimento Completa
+                    </Button>
                   </CardContent>
                 </Card>
               )}
