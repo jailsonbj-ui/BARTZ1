@@ -271,29 +271,40 @@ async def geocode_with_photon(query: str) -> List[dict]:
                 "https://photon.komoot.io/api/",
                 params={
                     "q": query,
-                    "limit": 8,
-                    "lang": "pt",
-                    "lat": -15.77,  # Brazil center bias
-                    "lon": -47.92,
-                    "osm_tag": "place:city",
-                    "osm_tag": "place:town"
+                    "limit": 10,
+                    "lang": "pt"
                 },
                 timeout=10.0
             )
             data = response.json()
             
             results = []
+            seen = set()
+            
             for feature in data.get("features", []):
                 props = feature.get("properties", {})
                 coords = feature.get("geometry", {}).get("coordinates", [])
+                country = props.get("country", "")
                 
                 # Filter only Brazil
-                if props.get("country") != "Brazil" and props.get("country") != "Brasil":
+                if country not in ["Brazil", "Brasil"]:
+                    continue
+                
+                # Only cities/towns
+                osm_type = props.get("osm_value", "")
+                if osm_type not in ["city", "town", "village", "municipality", ""]:
                     continue
                 
                 if len(coords) >= 2:
                     state = props.get("state", "")
                     city_name = props.get("name", props.get("city", query))
+                    
+                    # Avoid duplicates
+                    key = f"{city_name}_{state}"
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    
                     results.append({
                         "name": city_name,
                         "state": state,
@@ -302,7 +313,7 @@ async def geocode_with_photon(query: str) -> List[dict]:
                         "longitude": coords[0]
                     })
             
-            return results
+            return results[:8]
         except Exception as e:
             logger.error(f"Photon geocoding error: {e}")
     return []
