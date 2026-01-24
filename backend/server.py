@@ -259,9 +259,53 @@ async def search_cities(query: str):
     
     return results[:10]
 
-# ========== GEOCODING (Google Maps) ==========
+# ========== GEOCODING (Photon - OpenStreetMap gratuito) ==========
 
 GOOGLE_MAPS_API_KEY = os.environ.get('GOOGLE_MAPS_API_KEY')
+
+async def geocode_with_photon(query: str) -> List[dict]:
+    """Geocode using Photon API (OpenStreetMap - free, unlimited)"""
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(
+                "https://photon.komoot.io/api/",
+                params={
+                    "q": query,
+                    "limit": 8,
+                    "lang": "pt",
+                    "lat": -15.77,  # Brazil center bias
+                    "lon": -47.92,
+                    "osm_tag": "place:city",
+                    "osm_tag": "place:town"
+                },
+                timeout=10.0
+            )
+            data = response.json()
+            
+            results = []
+            for feature in data.get("features", []):
+                props = feature.get("properties", {})
+                coords = feature.get("geometry", {}).get("coordinates", [])
+                
+                # Filter only Brazil
+                if props.get("country") != "Brazil" and props.get("country") != "Brasil":
+                    continue
+                
+                if len(coords) >= 2:
+                    state = props.get("state", "")
+                    city_name = props.get("name", props.get("city", query))
+                    results.append({
+                        "name": city_name,
+                        "state": state,
+                        "display_name": f"{city_name}, {state}" if state else city_name,
+                        "latitude": coords[1],
+                        "longitude": coords[0]
+                    })
+            
+            return results
+        except Exception as e:
+            logger.error(f"Photon geocoding error: {e}")
+    return []
 
 async def geocode_with_google(query: str) -> Optional[GeocodingResult]:
     """Geocode using Google Maps API"""
@@ -297,90 +341,45 @@ async def geocode_with_google(query: str) -> Optional[GeocodingResult]:
 
 @api_router.get("/search-cities")
 async def search_cities(query: str):
-    """Search for cities using Google Maps Autocomplete"""
+    """Search for cities using Photon (OpenStreetMap)"""
     if len(query) < 2:
         return []
     
-    if not GOOGLE_MAPS_API_KEY:
-        # Fallback to local database
-        normalized_query = normalize_text(query)
-        results = []
-        for city in BRAZILIAN_CITIES:
-            city_name = normalize_text(city["name"])
-            if normalized_query in city_name:
-                results.append({
-                    "name": city["name"],
-                    "state": city["state"],
-                    "display_name": f"{city['name']}, {city['state']}",
-                    "latitude": city["lat"],
-                    "longitude": city["lng"]
-                })
-        return results[:10]
+    # Try Photon first (free, unlimited)
+    results = await geocode_with_photon(query)
+    if results:
+        return results
     
-    async with httpx.AsyncClient() as client:
-        try:
-            # Use Google Places Autocomplete
-            response = await client.get(
-                "https://maps.googleapis.com/maps/api/place/autocomplete/json",
-                params={
-                    "input": query,
-                    "types": "(cities)",
-                    "components": "country:br",
-                    "key": GOOGLE_MAPS_API_KEY,
-                    "language": "pt-BR"
-                },
-                timeout=10.0
-            )
-            data = response.json()
-            
-            if data.get("status") == "OK":
-                results = []
-                for prediction in data.get("predictions", [])[:8]:
-                    # Get place details to get coordinates
-                    place_id = prediction.get("place_id")
-                    if place_id:
-                        detail_response = await client.get(
-                            "https://maps.googleapis.com/maps/api/place/details/json",
-                            params={
-                                "place_id": place_id,
-                                "fields": "geometry,formatted_address,name,address_components",
-                                "key": GOOGLE_MAPS_API_KEY,
-                                "language": "pt-BR"
-                            },
-                            timeout=10.0
-                        )
-                        detail_data = detail_response.json()
-                        
-                        if detail_data.get("status") == "OK":
-                            place = detail_data.get("result", {})
-                            location = place.get("geometry", {}).get("location", {})
-                            
-                            # Extract state from address components
-                            state = ""
-                            for comp in place.get("address_components", []):
-                                if "administrative_area_level_1" in comp.get("types", []):
-                                    state = comp.get("short_name", "")
-                                    break
-                            
-                            results.append({
-                                "name": place.get("name", prediction.get("description", "")),
-                                "state": state,
-                                "display_name": place.get("formatted_address", prediction.get("description", "")),
-                                "latitude": location.get("lat"),
-                                "longitude": location.get("lng")
-                            })
-                
-                return results
-            
-        except Exception as e:
-            logger.error(f"Google Places error: {e}")
-    
-    return []
+    # Fallback to local database
+    normalized_query = normalize_text(query)
+    local_results = []
+    for city in BRAZILIAN_CITIES:
+        city_name = normalize_text(city["name"])
+        if normalized_query in city_name:
+            local_results.append({
+                "name": city["name"],
+                "state": city["state"],
+                "display_name": f"{city['name']}, {city['state']}",
+                "latitude": city["lat"],
+                "longitude": city["lng"]
+            })
+    return local_results[:10]
 
 async def geocode_location(query: str) -> Optional[GeocodingResult]:
-    """Geocode a location - try Google first, then fallback to local"""
+    """Geocode a location - try multiple sources"""
     
-    # Try Google Maps first
+    # Try Photon (free)
+    results = await geocode_with_photon(query)
+    if results:
+        r = results[0]
+        return GeocodingResult(
+            name=r["display_name"],
+            latitude=r["latitude"],
+            longitude=r["longitude"],
+            display_name=r["display_name"]
+        )
+    
+    # Try Google Maps
     result = await geocode_with_google(query)
     if result:
         return result
