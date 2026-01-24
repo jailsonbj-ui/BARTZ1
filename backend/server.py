@@ -265,6 +265,7 @@ GOOGLE_MAPS_API_KEY = os.environ.get('GOOGLE_MAPS_API_KEY')
 
 async def geocode_with_nominatim(query: str) -> List[dict]:
     """Geocode using Nominatim API (OpenStreetMap - free)"""
+    logger.info(f"Nominatim search for: {query}")
     async with httpx.AsyncClient() as client:
         try:
             response = await client.get(
@@ -278,9 +279,11 @@ async def geocode_with_nominatim(query: str) -> List[dict]:
                     "accept-language": "pt-BR"
                 },
                 headers={"User-Agent": "SmartFuel/2.0 (contact@smartfuel.com.br)"},
-                timeout=10.0
+                timeout=15.0
             )
+            logger.info(f"Nominatim response status: {response.status_code}")
             data = response.json()
+            logger.info(f"Nominatim results count: {len(data)}")
             
             results = []
             seen = set()
@@ -304,6 +307,7 @@ async def geocode_with_nominatim(query: str) -> List[dict]:
                     "longitude": float(item["lon"])
                 })
             
+            logger.info(f"Returning {len(results)} results")
             return results[:8]
         except Exception as e:
             logger.error(f"Nominatim geocoding error: {e}")
