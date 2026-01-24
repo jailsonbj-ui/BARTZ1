@@ -1086,6 +1086,99 @@ Dê sua avaliação em 2-3 frases: o plano está otimizado? Alguma sugestão?"""
     }
 
 
+
+# ========== AI ROUTE ADVISOR ==========
+
+class AIAdvisorRequest(BaseModel):
+    route_distance: float
+    origin: str
+    destination: str
+    vehicle: Vehicle
+    fuel_plan: Optional[dict] = None
+    question: Optional[str] = None
+
+@api_router.post("/ai-advisor")
+async def ai_route_advisor(request: AIAdvisorRequest):
+    """Get AI advice for route planning and fuel optimization"""
+    api_key = os.environ.get('EMERGENT_LLM_KEY')
+    
+    if not api_key:
+        return {"advice": "IA não disponível. Configure a chave EMERGENT_LLM_KEY."}
+    
+    try:
+        chat = LlmChat(
+            api_key=api_key,
+            session_id=f"advisor-{uuid.uuid4()}",
+            system_message="""Você é um especialista em logística de frotas de caminhões no Brasil.
+Seu papel é aconselhar motoristas e gestores sobre:
+- Melhor estratégia de abastecimento
+- Otimização de custos
+- Segurança na estrada
+- Planejamento de paradas
+
+Seja direto, prático e use linguagem simples. Sempre considere:
+1. Custo total da viagem
+2. Número de paradas (menos é melhor para carretas)
+3. Segurança (nunca ficar com tanque vazio)
+4. Chegar no destino com reserva de combustível"""
+        ).with_model("openai", "gpt-5.2")
+        
+        # Build context
+        autonomy = request.vehicle.tank_capacity * request.vehicle.consumption_rate
+        current_autonomy = request.vehicle.current_liters * request.vehicle.consumption_rate
+        
+        context = f"""VIAGEM: {request.origin} → {request.destination}
+DISTÂNCIA: {request.route_distance:.0f} km
+
+VEÍCULO:
+- Tanque: {request.vehicle.tank_capacity}L
+- Consumo: {request.vehicle.consumption_rate} km/L
+- Autonomia máxima: {autonomy:.0f} km
+- Combustível atual: {request.vehicle.current_liters}L ({current_autonomy:.0f} km)"""
+        
+        if request.fuel_plan and request.fuel_plan.get('stops'):
+            stops = request.fuel_plan['stops']
+            stops_text = "\n".join([
+                f"  {i+1}. Km {s['distance_from_start']:.0f}: {s['station']['name']} - +{s['fuel_to_add']:.0f}L @ R${s['station']['diesel_price']:.2f}"
+                for i, s in enumerate(stops)
+            ])
+            context += f"""
+
+PLANO ATUAL ({len(stops)} paradas):
+{stops_text}
+
+TOTAIS:
+- Litros: {request.fuel_plan.get('total_fuel_liters', 0):.0f}L
+- Custo: R$ {request.fuel_plan.get('total_cost', 0):.2f}
+- Preço médio: R$ {request.fuel_plan.get('avg_price_per_liter', 0):.2f}/L
+- Chegada com: {request.fuel_plan.get('final_fuel_percent', 0):.0f}% do tanque"""
+        
+        question = request.question or "Analise esta rota e me dê sua recomendação para otimizar o abastecimento."
+        
+        prompt = f"""{context}
+
+PERGUNTA DO USUÁRIO:
+{question}
+
+Responda de forma clara e objetiva (máximo 4-5 frases)."""
+        
+        advice = await chat.send_message(UserMessage(text=prompt))
+        
+        return {
+            "advice": advice,
+            "route_summary": {
+                "distance": request.route_distance,
+                "origin": request.origin,
+                "destination": request.destination,
+                "autonomy": autonomy,
+                "current_range": current_autonomy
+            }
+        }
+    except Exception as e:
+        logger.error(f"AI Advisor error: {e}")
+        return {"advice": f"Erro ao consultar IA: {str(e)}"}
+
+
 # ========== SERVICE ORDER ==========
 
 @api_router.post("/generate-service-order")
