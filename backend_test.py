@@ -79,7 +79,7 @@ class FleetFuelAPITester:
         self.run_test("Health Check", "GET", "health", 200)
 
     def test_station_crud(self):
-        """Test fuel station CRUD operations"""
+        """Test fuel station CRUD operations with new rating and parking features"""
         print("\n=== TESTING STATION CRUD ===")
         
         # Test get stations (should be empty or seeded)
@@ -91,15 +91,46 @@ class FleetFuelAPITester:
             # Get stations again after seeding
             success, stations_data = self.run_test("Get Stations After Seed", "GET", "stations", 200)
         
-        # Test create new station
+        # Verify seeded stations have new rating and parking fields
+        if success and stations_data:
+            first_station = stations_data[0]
+            if 'ratings' in first_station:
+                ratings = first_station['ratings']
+                required_ratings = ['price_rating', 'service_rating', 'parking_rating', 'security_rating']
+                missing_ratings = [r for r in required_ratings if r not in ratings]
+                if missing_ratings:
+                    print(f"⚠️  Missing rating fields: {missing_ratings}")
+                else:
+                    print(f"✅ Station ratings system working - all 4 rating types present")
+            
+            if 'parking' in first_station:
+                parking = first_station['parking']
+                if 'parking_type' in parking:
+                    print(f"✅ Parking system working - type: {parking['parking_type']}")
+                else:
+                    print(f"⚠️  Missing parking_type field")
+        
+        # Test create new station with ratings and parking
         new_station_data = {
             "name": "Test Station API",
             "latitude": -26.5,
             "longitude": -49.0,
             "diesel_price": 5.45,
-            "is_active": True
+            "is_active": True,
+            "city": "Test City",
+            "ratings": {
+                "price_rating": 4,
+                "service_rating": 5,
+                "parking_rating": 3,
+                "security_rating": 4
+            },
+            "parking": {
+                "has_parking": True,
+                "parking_type": "with_min_fuel",
+                "min_fuel_liters": 200
+            }
         }
-        success, created_station = self.run_test("Create New Station", "POST", "stations", 200, new_station_data)
+        success, created_station = self.run_test("Create New Station with Ratings", "POST", "stations", 200, new_station_data)
         
         if success and 'id' in created_station:
             self.created_station_id = created_station['id']
