@@ -1139,7 +1139,7 @@ VEÍCULO:
         if request.fuel_plan and request.fuel_plan.get('stops'):
             stops = request.fuel_plan['stops']
             stops_text = "\n".join([
-                f"  {i+1}. Km {s['distance_from_start']:.0f}: {s['station']['name']} - +{s['fuel_to_add']:.0f}L @ R${s['station']['diesel_price']:.2f}"
+                f"  {i+1}. Km {s.get('distance_from_start', 0):.0f}: {s.get('station', {}).get('name', 'Posto')} - +{s.get('fuel_to_add', 0):.0f}L @ R${s.get('station', {}).get('diesel_price', 5.5):.2f}"
                 for i, s in enumerate(stops)
             ])
             context += f"""
