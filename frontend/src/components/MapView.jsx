@@ -125,12 +125,37 @@ export default function MapView({
   const [isCreatingStation, setIsCreatingStation] = useState(false);
   const [newStationPosition, setNewStationPosition] = useState(null);
   const [showTraffic, setShowTraffic] = useState(false);
-  const [mapType, setMapType] = useState("roadmap"); // roadmap, satellite, terrain, hybrid
+  const [mapType, setMapType] = useState("roadmap");
   const [showLayersMenu, setShowLayersMenu] = useState(false);
+  const [searchBox, setSearchBox] = useState(null);
+  const [searchValue, setSearchValue] = useState("");
+  const searchInputRef = useRef(null);
 
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: GOOGLE_MAPS_KEY,
+    libraries: LIBRARIES,
   });
+
+  const onSearchLoad = (autocomplete) => {
+    setSearchBox(autocomplete);
+  };
+
+  const onPlaceChanged = () => {
+    if (searchBox) {
+      const place = searchBox.getPlace();
+      if (place.geometry && place.geometry.location) {
+        const lat = place.geometry.location.lat();
+        const lng = place.geometry.location.lng();
+        
+        if (map) {
+          map.panTo({ lat, lng });
+          map.setZoom(14);
+        }
+        
+        setSearchValue(place.formatted_address || place.name || "");
+      }
+    }
+  };
 
   const center = useMemo(() => {
     if (routeData?.route_geometry?.length > 0) {
