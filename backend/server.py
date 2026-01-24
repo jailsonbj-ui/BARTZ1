@@ -229,36 +229,6 @@ def get_city_coords(city_name: str) -> Optional[dict]:
             }
     return None
 
-@api_router.get("/search-cities")
-async def search_cities(query: str):
-    """Search for cities with autocomplete"""
-    if len(query) < 2:
-        return []
-    
-    normalized_query = normalize_text(query)
-    results = []
-    
-    for city in BRAZILIAN_CITIES:
-        city_name = normalize_text(city["name"])
-        city_full = normalize_text(f"{city['name']} {city['state']}")
-        
-        if normalized_query in city_name or normalized_query in city_full:
-            results.append({
-                "name": city["name"],
-                "state": city["state"],
-                "display_name": f"{city['name']}, {city['state']}",
-                "latitude": city["lat"],
-                "longitude": city["lng"]
-            })
-    
-    # Sort by relevance (starts with query first)
-    results.sort(key=lambda x: (
-        0 if normalize_text(x["name"]).startswith(normalized_query) else 1,
-        x["name"]
-    ))
-    
-    return results[:10]
-
 # ========== GEOCODING (Nominatim - OpenStreetMap gratuito) ==========
 
 GOOGLE_MAPS_API_KEY = os.environ.get('GOOGLE_MAPS_API_KEY')
