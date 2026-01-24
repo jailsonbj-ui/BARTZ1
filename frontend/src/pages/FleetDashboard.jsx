@@ -222,11 +222,11 @@ export default function FleetDashboard() {
     }
   };
 
-  const handleMapClick = (latlng) => {
+  const handleMapClick = (coords) => {
     setSelectedStation({
       isNew: true,
-      latitude: latlng.lat,
-      longitude: latlng.lng,
+      latitude: coords.lat,
+      longitude: coords.lng,
       name: "",
       diesel_price: 5.50,
       is_active: true,
