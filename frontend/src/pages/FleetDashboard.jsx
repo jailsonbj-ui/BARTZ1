@@ -428,6 +428,7 @@ export default function FleetDashboard() {
         aiResponse={aiResponse}
         onUpdateFuelPlan={handleUpdateFuelPlan}
         onGenerateFullOrder={handleGenerateFullOrder}
+        onToggleComplete={handleToggleComplete}
       />
     </div>
   );
