@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useCallback, useState } from "react";
 import { GoogleMap, useJsApiLoader, Marker, Polyline, InfoWindow, TrafficLayer } from "@react-google-maps/api";
-import { Fuel, MapPin, AlertTriangle, Star, Loader2, Plus, X, Layers, Map, Mountain, Car } from "lucide-react";
+import { Fuel, MapPin, AlertTriangle, Star, Loader2, Plus, X, Layers, Map, Globe, Car } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const GOOGLE_MAPS_KEY = process.env.REACT_APP_GOOGLE_MAPS_KEY;
