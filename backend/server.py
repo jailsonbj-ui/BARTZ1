@@ -229,12 +229,15 @@ def get_city_coords(city_name: str) -> Optional[dict]:
             }
     return None
 
-# ========== GEOCODING (Nominatim - OpenStreetMap gratuito) ==========
+# ========== GEOCODING (Google Maps) ==========
 
 GOOGLE_MAPS_API_KEY = os.environ.get('GOOGLE_MAPS_API_KEY')
 
-async def geocode_with_nominatim(query: str) -> List[dict]:
-    """Geocode using Nominatim API (OpenStreetMap - free)"""
+async def google_places_autocomplete(query: str) -> List[dict]:
+    """Fast city search using Google Places Autocomplete"""
+    if not GOOGLE_MAPS_API_KEY:
+        return []
+    
     import urllib.request
     import urllib.parse
     import json as json_module
@@ -242,89 +245,207 @@ async def geocode_with_nominatim(query: str) -> List[dict]:
     
     try:
         params = urllib.parse.urlencode({
-            "q": query,
-            "countrycodes": "br",
-            "format": "json",
-            "limit": 10,
-            "addressdetails": 1
+            "input": query,
+            "types": "(cities)",
+            "components": "country:br",
+            "key": GOOGLE_MAPS_API_KEY,
+            "language": "pt-BR"
         })
-        url = f"https://nominatim.openstreetmap.org/search?{params}"
+        url = f"https://maps.googleapis.com/maps/api/place/autocomplete/json?{params}"
         
-        req = urllib.request.Request(
-            url,
-            headers={"User-Agent": "SmartFuel/2.0 (contact@smartfuel.com.br)"}
-        )
-        
+        req = urllib.request.Request(url)
         ctx = ssl.create_default_context()
-        with urllib.request.urlopen(req, timeout=15, context=ctx) as response:
+        
+        with urllib.request.urlopen(req, timeout=10, context=ctx) as response:
             data = json_module.loads(response.read().decode())
         
+        if data.get("status") != "OK":
+            logger.warning(f"Google Places status: {data.get('status')} - {data.get('error_message', '')}")
+            return []
+        
         results = []
-        seen = set()
-        
-        for item in data:
-            addr = item.get("address", {})
-            state = addr.get("state", "")
-            city_name = item.get("name", addr.get("city", addr.get("town", addr.get("municipality", query))))
+        for prediction in data.get("predictions", [])[:8]:
+            place_id = prediction.get("place_id")
+            description = prediction.get("description", "")
             
-            key = f"{city_name}_{state}"
-            if key in seen:
-                continue
-            seen.add(key)
-            
-            results.append({
-                "name": city_name,
-                "state": state,
-                "display_name": f"{city_name}, {state}" if state else city_name,
-                "latitude": float(item["lat"]),
-                "longitude": float(item["lon"])
+            # Get coordinates from place details
+            detail_params = urllib.parse.urlencode({
+                "place_id": place_id,
+                "fields": "geometry,name,address_components",
+                "key": GOOGLE_MAPS_API_KEY,
+                "language": "pt-BR"
             })
+            detail_url = f"https://maps.googleapis.com/maps/api/place/details/json?{detail_params}"
+            
+            detail_req = urllib.request.Request(detail_url)
+            with urllib.request.urlopen(detail_req, timeout=10, context=ctx) as detail_response:
+                detail_data = json_module.loads(detail_response.read().decode())
+            
+            if detail_data.get("status") == "OK":
+                place = detail_data.get("result", {})
+                location = place.get("geometry", {}).get("location", {})
+                
+                # Extract state
+                state = ""
+                for comp in place.get("address_components", []):
+                    if "administrative_area_level_1" in comp.get("types", []):
+                        state = comp.get("short_name", "")
+                        break
+                
+                results.append({
+                    "name": place.get("name", description.split(",")[0]),
+                    "state": state,
+                    "display_name": description,
+                    "latitude": location.get("lat"),
+                    "longitude": location.get("lng"),
+                    "place_id": place_id
+                })
         
-        return results[:8]
+        return results
     except Exception as e:
-        logger.error(f"Nominatim error: {e}")
+        logger.error(f"Google Places error: {e}")
     return []
 
-async def geocode_with_google(query: str) -> Optional[GeocodingResult]:
-    """Geocode using Google Maps API"""
+async def google_geocode(query: str) -> Optional[GeocodingResult]:
+    """Geocode using Google Geocoding API"""
     if not GOOGLE_MAPS_API_KEY:
         return None
     
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.get(
-                "https://maps.googleapis.com/maps/api/geocode/json",
-                params={
-                    "address": f"{query}, Brasil",
-                    "key": GOOGLE_MAPS_API_KEY,
-                    "language": "pt-BR",
-                    "region": "br"
-                },
-                timeout=10.0
+    import urllib.request
+    import urllib.parse
+    import json as json_module
+    import ssl
+    
+    try:
+        params = urllib.parse.urlencode({
+            "address": f"{query}, Brasil",
+            "key": GOOGLE_MAPS_API_KEY,
+            "language": "pt-BR",
+            "region": "br"
+        })
+        url = f"https://maps.googleapis.com/maps/api/geocode/json?{params}"
+        
+        req = urllib.request.Request(url)
+        ctx = ssl.create_default_context()
+        
+        with urllib.request.urlopen(req, timeout=10, context=ctx) as response:
+            data = json_module.loads(response.read().decode())
+        
+        if data.get("status") == "OK" and data.get("results"):
+            result = data["results"][0]
+            location = result["geometry"]["location"]
+            return GeocodingResult(
+                name=result.get("formatted_address", query),
+                latitude=location["lat"],
+                longitude=location["lng"],
+                display_name=result.get("formatted_address", query)
             )
-            data = response.json()
-            
-            if data.get("status") == "OK" and data.get("results"):
-                result = data["results"][0]
-                location = result["geometry"]["location"]
-                return GeocodingResult(
-                    name=result.get("formatted_address", query),
-                    latitude=location["lat"],
-                    longitude=location["lng"],
-                    display_name=result.get("formatted_address", query)
-                )
-        except Exception as e:
-            logger.error(f"Google geocoding error: {e}")
+    except Exception as e:
+        logger.error(f"Google Geocode error: {e}")
     return None
+
+async def google_directions(origin: tuple, destination: tuple, waypoints: List[tuple] = None) -> dict:
+    """Get route using Google Directions API"""
+    if not GOOGLE_MAPS_API_KEY:
+        return None
+    
+    import urllib.request
+    import urllib.parse
+    import json as json_module
+    import ssl
+    
+    try:
+        params = {
+            "origin": f"{origin[0]},{origin[1]}",
+            "destination": f"{destination[0]},{destination[1]}",
+            "key": GOOGLE_MAPS_API_KEY,
+            "mode": "driving",
+            "language": "pt-BR",
+            "region": "br"
+        }
+        
+        if waypoints:
+            wp_str = "|".join([f"{wp[0]},{wp[1]}" for wp in waypoints])
+            params["waypoints"] = wp_str
+        
+        url = f"https://maps.googleapis.com/maps/api/directions/json?{urllib.parse.urlencode(params)}"
+        
+        req = urllib.request.Request(url)
+        ctx = ssl.create_default_context()
+        
+        with urllib.request.urlopen(req, timeout=30, context=ctx) as response:
+            data = json_module.loads(response.read().decode())
+        
+        if data.get("status") != "OK":
+            logger.warning(f"Google Directions status: {data.get('status')} - {data.get('error_message', '')}")
+            return None
+        
+        if not data.get("routes"):
+            return None
+        
+        route = data["routes"][0]
+        
+        # Calculate totals
+        total_distance = sum(leg["distance"]["value"] for leg in route["legs"]) / 1000
+        total_duration = sum(leg["duration"]["value"] for leg in route["legs"]) / 60
+        
+        # Decode polyline
+        geometry = []
+        for leg in route["legs"]:
+            for step in leg["steps"]:
+                points = decode_google_polyline(step["polyline"]["points"])
+                geometry.extend(points)
+        
+        return {
+            "distance": total_distance,
+            "duration": total_duration,
+            "geometry": geometry,  # [lng, lat] format
+            "overview_polyline": route.get("overview_polyline", {}).get("points", "")
+        }
+    except Exception as e:
+        logger.error(f"Google Directions error: {e}")
+    return None
+
+def decode_google_polyline(polyline_str: str) -> List[List[float]]:
+    """Decode Google polyline to coordinates [lng, lat]"""
+    index, lat, lng = 0, 0, 0
+    coordinates = []
+    
+    while index < len(polyline_str):
+        # Decode latitude
+        shift, result = 0, 0
+        while True:
+            b = ord(polyline_str[index]) - 63
+            index += 1
+            result |= (b & 0x1f) << shift
+            shift += 5
+            if b < 0x20:
+                break
+        lat += (~(result >> 1) if result & 1 else result >> 1)
+        
+        # Decode longitude
+        shift, result = 0, 0
+        while True:
+            b = ord(polyline_str[index]) - 63
+            index += 1
+            result |= (b & 0x1f) << shift
+            shift += 5
+            if b < 0x20:
+                break
+        lng += (~(result >> 1) if result & 1 else result >> 1)
+        
+        coordinates.append([lng / 1e5, lat / 1e5])
+    
+    return coordinates
 
 @api_router.get("/search-cities")
 async def search_cities(query: str):
-    """Search for cities using Nominatim (OpenStreetMap)"""
+    """Search cities using Google Places API"""
     if len(query) < 2:
         return []
     
-    # Try Nominatim first
-    results = await geocode_with_nominatim(query)
+    # Try Google Places first (fast)
+    results = await google_places_autocomplete(query)
     if results:
         return results
     
@@ -344,21 +465,10 @@ async def search_cities(query: str):
     return local_results[:10]
 
 async def geocode_location(query: str) -> Optional[GeocodingResult]:
-    """Geocode a location - try multiple sources"""
+    """Geocode a location using Google"""
     
-    # Try Nominatim (free)
-    results = await geocode_with_nominatim(query)
-    if results:
-        r = results[0]
-        return GeocodingResult(
-            name=r["display_name"],
-            latitude=r["latitude"],
-            longitude=r["longitude"],
-            display_name=r["display_name"]
-        )
-    
-    # Try Google Maps
-    result = await geocode_with_google(query)
+    # Try Google Geocoding
+    result = await google_geocode(query)
     if result:
         return result
     
