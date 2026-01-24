@@ -992,7 +992,7 @@ async def plan_fuel_stops(request: MultiStopPlanRequest):
             fuel_to_dest = fuel_at_arrival - ((route_distance - stop_distance) / vehicle.consumption_rate)
             if fuel_to_dest >= destination_reserve_liters:
                 # Can skip this stop
-                logger.info(f"Skipping stop - can reach destination with reserve")
+                logger.info("Skipping stop - can reach destination with reserve")
                 current_distance = stop_distance
                 current_fuel = fuel_at_arrival
                 continue
