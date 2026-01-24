@@ -268,6 +268,7 @@ async def geocode_with_nominatim(query: str) -> List[dict]:
     import urllib.request
     import urllib.parse
     import json as json_module
+    import ssl
     
     try:
         params = urllib.parse.urlencode({
@@ -284,7 +285,8 @@ async def geocode_with_nominatim(query: str) -> List[dict]:
             headers={"User-Agent": "SmartFuel/2.0 (contact@smartfuel.com.br)"}
         )
         
-        with urllib.request.urlopen(req, timeout=15) as response:
+        ctx = ssl.create_default_context()
+        with urllib.request.urlopen(req, timeout=15, context=ctx) as response:
             data = json_module.loads(response.read().decode())
         
         results = []
