@@ -618,7 +618,7 @@ def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
 
 @api_router.post("/calculate-route")
 async def calculate_route(request: RouteRequest):
-    """Calculate route using Google Directions or OSRM"""
+    """Calculate route using Google Directions API"""
     locations = []
     
     origin = await geocode_location(request.origin_city)
@@ -626,22 +626,29 @@ async def calculate_route(request: RouteRequest):
         raise HTTPException(status_code=400, detail=f"Cidade não encontrada: {request.origin_city}")
     locations.append({"name": origin.name, "lat": origin.latitude, "lng": origin.longitude})
     
+    waypoint_coords = []
     for wp_city in request.waypoint_cities:
         if wp_city.strip():
             wp = await geocode_location(wp_city)
             if wp:
                 locations.append({"name": wp.name, "lat": wp.latitude, "lng": wp.longitude})
+                waypoint_coords.append((wp.latitude, wp.longitude))
     
     dest = await geocode_location(request.destination_city)
     if not dest:
         raise HTTPException(status_code=400, detail=f"Cidade não encontrada: {request.destination_city}")
     locations.append({"name": dest.name, "lat": dest.latitude, "lng": dest.longitude})
     
-    coordinates = [(loc["lat"], loc["lng"]) for loc in locations]
+    # Try Google Directions first
+    route_data = await google_directions(
+        (origin.latitude, origin.longitude),
+        (dest.latitude, dest.longitude),
+        waypoint_coords if waypoint_coords else None
+    )
     
-    # Try Google Directions first, fallback to OSRM
-    route_data = await get_route_from_google(coordinates)
+    # Fallback to OSRM if Google fails
     if not route_data:
+        coordinates = [(loc["lat"], loc["lng"]) for loc in locations]
         route_data = await get_route_from_osrm(coordinates)
     
     if not route_data:
@@ -653,7 +660,7 @@ async def calculate_route(request: RouteRequest):
     
     # Calculate fuel limit point
     fuel_limit_point = None
-    if autonomy < total_distance:
+    if autonomy < total_distance and route_data.get("geometry"):
         cumulative_distance = 0
         geometry = route_data["geometry"]
         for i in range(len(geometry) - 1):
@@ -671,17 +678,19 @@ async def calculate_route(request: RouteRequest):
                 break
             cumulative_distance += segment_distance
     
-    route_geometry = [[coord[1], coord[0]] for coord in route_data["geometry"]]
+    # Convert geometry to [lat, lng] for frontend
+    route_geometry = [[coord[1], coord[0]] for coord in route_data.get("geometry", [])]
     
     return {
         "total_distance": round(total_distance, 2),
-        "duration_minutes": round(route_data["duration"], 0),
+        "duration_minutes": round(route_data.get("duration", 0), 0),
         "autonomy": round(autonomy, 2),
         "fuel_needed": round(fuel_needed, 2),
         "can_complete_route": autonomy >= total_distance,
         "fuel_limit_point": fuel_limit_point,
         "route_points": locations,
-        "route_geometry": route_geometry
+        "route_geometry": route_geometry,
+        "overview_polyline": route_data.get("overview_polyline", "")
     }
 
 # ========== STATION CRUD ==========
