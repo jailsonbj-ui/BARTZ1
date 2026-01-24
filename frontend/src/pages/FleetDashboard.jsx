@@ -222,7 +222,7 @@ export default function FleetDashboard() {
     }
   };
 
-  const handleMapClick = (coords) => {
+  const handleCreateStation = (coords) => {
     setSelectedStation({
       isNew: true,
       latitude: coords.lat,
