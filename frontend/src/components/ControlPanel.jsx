@@ -429,6 +429,18 @@ export default function ControlPanel({
                       </div>
                     )}
 
+                    {/* AI Advisor Response */}
+                    {aiResponse && (
+                      <div className="bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border border-cyan-500/30 rounded-lg p-3">
+                        <div className="flex items-center gap-2 text-cyan-400 font-medium text-xs mb-2">
+                          <Sparkles className="w-3 h-3" /> Consultor IA
+                        </div>
+                        <div className="text-sm text-foreground whitespace-pre-wrap">
+                          {aiResponse}
+                        </div>
+                      </div>
+                    )}
+
                     {/* AI Advisor Button */}
                     <Button
                       data-testid="btn-ai-advisor"
@@ -437,8 +449,12 @@ export default function ControlPanel({
                       className="w-full border-violet-500/50 text-violet-400 hover:bg-violet-500/10"
                       disabled={isLoading}
                     >
-                      <Sparkles className="w-4 h-4 mr-2" />
-                      Consultar IA sobre este plano
+                      {isLoading ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Sparkles className="w-4 h-4 mr-2" />
+                      )}
+                      {aiResponse ? "Consultar novamente" : "Consultar IA sobre este plano"}
                     </Button>
                   </CardContent>
                 </Card>
