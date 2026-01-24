@@ -316,7 +316,7 @@ export default function FleetDashboard() {
           setSelectedStation={setSelectedStation}
           routeData={routeData}
           fuelPlan={fuelPlan}
-          onMapClick={handleMapClick}
+          onCreateStation={handleCreateStation}
           mapStyle={mapStyle}
           theme={theme}
         />
