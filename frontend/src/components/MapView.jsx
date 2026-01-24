@@ -129,6 +129,7 @@ export default function MapView({
   const [showLayersMenu, setShowLayersMenu] = useState(false);
   const [searchBox, setSearchBox] = useState(null);
   const [searchValue, setSearchValue] = useState("");
+  const [searchMarker, setSearchMarker] = useState(null);
   const searchInputRef = useRef(null);
 
   const { isLoaded, loadError } = useJsApiLoader({
@@ -147,6 +148,13 @@ export default function MapView({
         const lat = place.geometry.location.lat();
         const lng = place.geometry.location.lng();
         
+        // Set search marker
+        setSearchMarker({
+          lat,
+          lng,
+          name: place.formatted_address || place.name || "Local buscado"
+        });
+        
         if (map) {
           map.panTo({ lat, lng });
           map.setZoom(14);
@@ -155,6 +163,27 @@ export default function MapView({
         setSearchValue(place.formatted_address || place.name || "");
       }
     }
+  };
+
+  const clearSearch = () => {
+    setSearchValue("");
+    setSearchMarker(null);
+  };
+
+  // Create search marker icon
+  const createSearchMarkerIcon = () => {
+    const svg = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="40" height="50" viewBox="0 0 40 50">
+        <defs>
+          <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+            <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#000" flood-opacity="0.4"/>
+          </filter>
+        </defs>
+        <path d="M20 0 C9 0 0 9 0 20 C0 35 20 50 20 50 C20 50 40 35 40 20 C40 9 31 0 20 0 Z" fill="#EF4444" stroke="white" stroke-width="2" filter="url(#shadow)"/>
+        <circle cx="20" cy="18" r="8" fill="white"/>
+      </svg>
+    `;
+    return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
   };
 
   const center = useMemo(() => {
