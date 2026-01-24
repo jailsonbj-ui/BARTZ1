@@ -889,7 +889,7 @@ async def plan_fuel_stops(request: MultiStopPlanRequest):
         available_stations = find_stations_in_range(
             stations, route_geometry,
             search_start, search_end,
-            route_distance, max_deviation=30
+            route_distance, max_deviation=50
         )
         
         logger.info(f"Found {len(available_stations)} stations between {search_start:.0f}km and {search_end:.0f}km")
@@ -927,7 +927,7 @@ async def plan_fuel_stops(request: MultiStopPlanRequest):
         future_stations = find_stations_in_range(
             stations, route_geometry,
             lookahead_start, min(lookahead_end, route_distance - 50),
-            route_distance, max_deviation=30
+            route_distance, max_deviation=50
         )
         
         # Find if there's a much cheaper station ahead
