@@ -525,15 +525,21 @@ export default function ControlPanel({
                             </Button>
                           </div>
                         </div>
-                        <div className="text-xs text-muted-foreground">{stop.reason}</div>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="w-full text-xs"
-                          onClick={() => generateServiceOrder(stop.station, stop.fuel_to_add)}
-                        >
-                          <Send className="w-3 h-3 mr-1" /> Gerar Ordem
-                        </Button>
+                        
+                        {/* Complete Toggle Button */}
+                        <div className="flex items-center justify-between">
+                          <div className="text-xs text-muted-foreground">{stop.reason}</div>
+                          <button
+                            onClick={() => onToggleComplete && onToggleComplete(index, !stop.isComplete)}
+                            className={`text-xs px-2 py-1 rounded transition-colors ${
+                              stop.isComplete 
+                                ? "bg-blue-500/20 text-blue-400 border border-blue-500/50" 
+                                : "bg-secondary/50 text-muted-foreground border border-white/10 hover:bg-secondary"
+                            }`}
+                          >
+                            {stop.isComplete ? "✓ Completar" : "Completar"}
+                          </button>
+                        </div>
                       </div>
                     ))}
 
