@@ -1217,6 +1217,66 @@ Máximo 4 linhas, use até 3 emojis."""
     
     return {"message": message, "maps_link": maps_link, "station": request.station_name}
 
+
+# ========== FULL ORDER GENERATION ==========
+
+class FullOrderRequest(BaseModel):
+    origin: str
+    destination: str
+    route_distance: float
+    stops: list
+    total_fuel: float
+    total_cost: float
+
+@api_router.post("/generate-full-order")
+async def generate_full_order(request: FullOrderRequest):
+    """Generate complete fueling order for all stops"""
+    
+    ordinals = ["1ª", "2ª", "3ª", "4ª", "5ª", "6ª", "7ª", "8ª", "9ª", "10ª", "11ª", "12ª"]
+    
+    lines = [
+        f"🚛 *ORDEM DE ABASTECIMENTO*",
+        f"📍 Rota: {request.origin} → {request.destination}",
+        f"📏 Distância: {request.route_distance:.0f} km",
+        f"",
+        f"*PARADAS:*",
+    ]
+    
+    for i, stop in enumerate(request.stops):
+        station = stop.get('station', {})
+        ordinal = ordinals[i] if i < len(ordinals) else f"{i+1}ª"
+        
+        # Get coordinates for maps link
+        lat = station.get('latitude', 0)
+        lng = station.get('longitude', 0)
+        maps_link = f"https://maps.google.com/?q={lat},{lng}"
+        
+        lines.append(f"")
+        lines.append(f"*{ordinal} abastecida*")
+        lines.append(f"⛽ Posto: {station.get('name', 'N/A')}")
+        lines.append(f"📌 Local: {station.get('city', 'N/A')}")
+        lines.append(f"🛣️ Km {stop.get('distance_from_start', 0):.0f}")
+        lines.append(f"💧 Litros: {stop.get('fuel_to_add', 0):.0f}L")
+        lines.append(f"💰 Valor: R$ {stop.get('cost', 0):.2f}")
+        lines.append(f"🗺️ {maps_link}")
+    
+    lines.append(f"")
+    lines.append(f"─────────────────")
+    lines.append(f"*RESUMO:*")
+    lines.append(f"⛽ Total: {request.total_fuel:.0f}L")
+    lines.append(f"💵 Custo: R$ {request.total_cost:.2f}")
+    lines.append(f"📊 Média: R$ {(request.total_cost / request.total_fuel):.2f}/L")
+    
+    message = "\n".join(lines)
+    
+    return {
+        "message": message,
+        "stops_count": len(request.stops),
+        "origin": request.origin,
+        "destination": request.destination
+    }
+
+
 # ========== SEED DATA ==========
 
 @api_router.post("/seed-stations")
