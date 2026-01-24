@@ -259,21 +259,25 @@ async def search_cities(query: str):
     
     return results[:10]
 
-# ========== GEOCODING (Photon - OpenStreetMap gratuito) ==========
+# ========== GEOCODING (Nominatim - OpenStreetMap gratuito) ==========
 
 GOOGLE_MAPS_API_KEY = os.environ.get('GOOGLE_MAPS_API_KEY')
 
-async def geocode_with_photon(query: str) -> List[dict]:
-    """Geocode using Photon API (OpenStreetMap - free, unlimited)"""
+async def geocode_with_nominatim(query: str) -> List[dict]:
+    """Geocode using Nominatim API (OpenStreetMap - free)"""
     async with httpx.AsyncClient() as client:
         try:
             response = await client.get(
-                "https://photon.komoot.io/api/",
+                "https://nominatim.openstreetmap.org/search",
                 params={
                     "q": query,
+                    "countrycodes": "br",
+                    "format": "json",
                     "limit": 10,
-                    "lang": "pt"
+                    "addressdetails": 1,
+                    "accept-language": "pt-BR"
                 },
+                headers={"User-Agent": "SmartFuel/2.0 (contact@smartfuel.com.br)"},
                 timeout=10.0
             )
             data = response.json()
@@ -281,36 +285,28 @@ async def geocode_with_photon(query: str) -> List[dict]:
             results = []
             seen = set()
             
-            for feature in data.get("features", []):
-                props = feature.get("properties", {})
-                coords = feature.get("geometry", {}).get("coordinates", [])
-                country = props.get("country", "")
+            for item in data:
+                addr = item.get("address", {})
+                state = addr.get("state", "")
+                city_name = item.get("name", addr.get("city", addr.get("town", addr.get("municipality", query))))
                 
-                # Filter only Brazil
-                if country not in ["Brazil", "Brasil"]:
+                # Avoid duplicates
+                key = f"{city_name}_{state}"
+                if key in seen:
                     continue
+                seen.add(key)
                 
-                if len(coords) >= 2:
-                    state = props.get("state", "")
-                    city_name = props.get("name", props.get("city", query))
-                    
-                    # Avoid duplicates
-                    key = f"{city_name}_{state}"
-                    if key in seen:
-                        continue
-                    seen.add(key)
-                    
-                    results.append({
-                        "name": city_name,
-                        "state": state,
-                        "display_name": f"{city_name}, {state}" if state else city_name,
-                        "latitude": coords[1],
-                        "longitude": coords[0]
-                    })
+                results.append({
+                    "name": city_name,
+                    "state": state,
+                    "display_name": f"{city_name}, {state}" if state else city_name,
+                    "latitude": float(item["lat"]),
+                    "longitude": float(item["lon"])
+                })
             
             return results[:8]
         except Exception as e:
-            logger.error(f"Photon geocoding error: {e}")
+            logger.error(f"Nominatim geocoding error: {e}")
     return []
 
 async def geocode_with_google(query: str) -> Optional[GeocodingResult]:
@@ -347,12 +343,12 @@ async def geocode_with_google(query: str) -> Optional[GeocodingResult]:
 
 @api_router.get("/search-cities")
 async def search_cities(query: str):
-    """Search for cities using Photon (OpenStreetMap)"""
+    """Search for cities using Nominatim (OpenStreetMap)"""
     if len(query) < 2:
         return []
     
-    # Try Photon first (free, unlimited)
-    results = await geocode_with_photon(query)
+    # Try Nominatim first
+    results = await geocode_with_nominatim(query)
     if results:
         return results
     
@@ -374,8 +370,8 @@ async def search_cities(query: str):
 async def geocode_location(query: str) -> Optional[GeocodingResult]:
     """Geocode a location - try multiple sources"""
     
-    # Try Photon (free)
-    results = await geocode_with_photon(query)
+    # Try Nominatim (free)
+    results = await geocode_with_nominatim(query)
     if results:
         r = results[0]
         return GeocodingResult(
