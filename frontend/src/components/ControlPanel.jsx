@@ -162,6 +162,73 @@ export default function ControlPanel({
     );
   });
 
+  // Handle removing a stop from fuel plan
+  const handleRemoveStop = (indexToRemove) => {
+    if (!fuelPlan?.stops || !onUpdateFuelPlan) return;
+    
+    const removedStop = fuelPlan.stops[indexToRemove];
+    const removedLiters = removedStop.fuel_to_add;
+    
+    // Create new stops array without the removed stop
+    const newStops = fuelPlan.stops.filter((_, i) => i !== indexToRemove);
+    
+    // Redistribute removed liters to the next stop (or previous if last)
+    if (newStops.length > 0 && removedLiters > 0) {
+      const targetIndex = indexToRemove < newStops.length ? indexToRemove : newStops.length - 1;
+      newStops[targetIndex] = {
+        ...newStops[targetIndex],
+        fuel_to_add: newStops[targetIndex].fuel_to_add + removedLiters,
+        cost: (newStops[targetIndex].fuel_to_add + removedLiters) * newStops[targetIndex].station.diesel_price,
+        reason: `Ajustado (+${removedLiters.toFixed(0)}L da parada removida)`
+      };
+    }
+    
+    // Recalculate totals
+    const totalFuel = newStops.reduce((sum, s) => sum + s.fuel_to_add, 0);
+    const totalCost = newStops.reduce((sum, s) => sum + s.cost, 0);
+    const avgPrice = totalFuel > 0 ? totalCost / totalFuel : 0;
+    
+    onUpdateFuelPlan({
+      ...fuelPlan,
+      stops: newStops,
+      total_stops: newStops.length,
+      total_fuel_liters: totalFuel,
+      total_cost: totalCost,
+      avg_price_per_liter: avgPrice,
+    });
+  };
+
+  // Handle updating liters for a specific stop
+  const handleUpdateLiters = (index, newLiters) => {
+    if (!fuelPlan?.stops || !onUpdateFuelPlan) return;
+    
+    const newStops = [...fuelPlan.stops];
+    const oldLiters = newStops[index].fuel_to_add;
+    const literDiff = newLiters - oldLiters;
+    
+    newStops[index] = {
+      ...newStops[index],
+      fuel_to_add: newLiters,
+      cost: newLiters * newStops[index].station.diesel_price,
+      reason: `Ajustado manualmente (${literDiff > 0 ? '+' : ''}${literDiff.toFixed(0)}L)`
+    };
+    
+    // Recalculate totals
+    const totalFuel = newStops.reduce((sum, s) => sum + s.fuel_to_add, 0);
+    const totalCost = newStops.reduce((sum, s) => sum + s.cost, 0);
+    const avgPrice = totalFuel > 0 ? totalCost / totalFuel : 0;
+    
+    onUpdateFuelPlan({
+      ...fuelPlan,
+      stops: newStops,
+      total_fuel_liters: totalFuel,
+      total_cost: totalCost,
+      avg_price_per_liter: avgPrice,
+    });
+    
+    setEditingStopIndex(null);
+  };
+
   useEffect(() => {
     if (selectedStation && !selectedStation.isNew) {
       setStationForm({
