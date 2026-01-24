@@ -458,6 +458,8 @@ export default function FleetDashboard() {
         onUpdateFuelPlan={handleUpdateFuelPlan}
         onGenerateFullOrder={handleGenerateFullOrder}
         onToggleComplete={handleToggleComplete}
+        onReanalyze={handleReanalyze}
+        planModified={planModified}
       />
     </div>
   );
