@@ -4,7 +4,7 @@ import json
 from datetime import datetime
 
 class FleetFuelAPITester:
-    def __init__(self, base_url="https://smartfuel-3.preview.emergentagent.com/api"):
+    def __init__(self, base_url="https://fleetlogistics-1.preview.emergentagent.com/api"):
         self.base_url = base_url
         self.tests_run = 0
         self.tests_passed = 0
