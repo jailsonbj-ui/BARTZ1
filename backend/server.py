@@ -249,7 +249,6 @@ async def geocode_with_nominatim(query: str) -> List[dict]:
             "addressdetails": 1
         })
         url = f"https://nominatim.openstreetmap.org/search?{params}"
-        print(f"[NOMINATIM] Searching: {url}", flush=True)
         
         req = urllib.request.Request(
             url,
@@ -259,8 +258,6 @@ async def geocode_with_nominatim(query: str) -> List[dict]:
         ctx = ssl.create_default_context()
         with urllib.request.urlopen(req, timeout=15, context=ctx) as response:
             data = json_module.loads(response.read().decode())
-        
-        print(f"[NOMINATIM] Got {len(data)} results", flush=True)
         
         results = []
         seen = set()
@@ -283,12 +280,9 @@ async def geocode_with_nominatim(query: str) -> List[dict]:
                 "longitude": float(item["lon"])
             })
         
-        print(f"[NOMINATIM] Returning {len(results)} results", flush=True)
         return results[:8]
     except Exception as e:
-        print(f"[NOMINATIM] Error: {e}", flush=True)
-        import traceback
-        traceback.print_exc()
+        logger.error(f"Nominatim error: {e}")
     return []
 
 async def geocode_with_google(query: str) -> Optional[GeocodingResult]:
