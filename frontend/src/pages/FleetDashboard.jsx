@@ -268,6 +268,7 @@ export default function FleetDashboard() {
   const handleUpdateFuelPlan = (updatedPlan) => {
     setFuelPlan(updatedPlan);
     toast.success("Plano atualizado!");
+    setPlanModified(true);
   };
 
   const handleGenerateFullOrder = async (currentFuelPlan) => {
@@ -310,6 +311,35 @@ export default function FleetDashboard() {
       ...fuelPlan,
       stops: newStops,
     });
+    setPlanModified(true);
+  };
+
+  const handleReanalyze = async (currentFuelPlan) => {
+    if (!routeData) {
+      toast.error("Calcule uma rota primeiro!");
+      return;
+    }
+    
+    setIsLoading(true);
+    try {
+      const response = await axios.post(`${API}/ai-advisor`, {
+        route_distance: routeData.total_distance,
+        origin: originCity,
+        destination: destinationCity,
+        vehicle: vehicle,
+        fuel_plan: currentFuelPlan,
+        question: "O plano foi modificado manualmente. Analise se as alterações são viáveis e se o veículo conseguirá completar a rota com segurança. Verifique se há risco de ficar sem combustível."
+      });
+      
+      setAiResponse(response.data.advice);
+      setPlanModified(false);
+      toast.success("Reanálise concluída!");
+    } catch (error) {
+      console.error("Error reanalyzing:", error);
+      toast.error("Erro ao reanalisar");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const addWaypoint = () => setWaypointCities([...waypointCities, ""]);
