@@ -1,34 +1,53 @@
-# SmartFuel - Sistema de Gestão de Abastecimento de Frota v2.4
+# SmartFuel - Sistema de Gestão de Abastecimento de Frota v2.5
 
 ## Problema Original
 Sistema inteligente de logística para controle de abastecimento de carretas de frota.
 
 ## O Que Foi Implementado
 
-### Versão 2.4 - Gestão Avançada de Plano (24/01/2026) ✅
-- **Barra de pesquisa na lista de postos**:
-  - Busca por cidade ou nome do posto
-  - Contador de resultados encontrados
-- **Edição de paradas no plano**:
-  - Clique na litragem para editar manualmente
-  - Lixeira para remover parada (litros redistribuídos automaticamente)
-- **Ordem de Abastecimento Completa**:
-  - Formato: 1ª abastecida, 2ª abastecida, etc.
-  - Inclui: Posto, Local, Km, Litros, Valor, Link do Maps
-  - Resumo: Total, Custo, Média
-  - Botões: Copiar | WhatsApp
+### Versão 2.5 - Refinamentos Finais (24/01/2026) ✅
+- **Barra de pesquisa no mapa**:
+  - Google Places Autocomplete integrado
+  - Busca qualquer local no Brasil
+  - Mapa centraliza automaticamente no local buscado
+- **Botão "Completar" nas paradas**:
+  - Toggle para indicar se deve completar o tanque
+  - Visual: botão azul com ✓ quando ativo
+- **Ordem de abastecimento atualizada**:
+  - Mostra "COMPLETAR" se marcado, ou quantidade de litros
+  - SEM valor monetário na ordem (conforme solicitado)
+- **Postos limitados a 50km da rota** (antes era 100km)
 
-### Versão 2.3 - Otimização para Carretas ✅
-- Minimiza número de paradas
-- Abastecimento mínimo: 100L
-- Chegada no destino com 20% reserva
-- Consultor IA para análise do plano
+### Versão 2.4 - Gestão de Plano ✅
+- Barra de pesquisa na lista de postos
+- Edição manual de litragem
+- Remover parada (redistribui litros)
+- Ordem completa numerada (1ª, 2ª, etc.)
 
 ### Versões Anteriores ✅
+- Lógica otimizada para carretas (mín. 100L, 20% reserva destino)
+- Consultor IA
 - Google Maps visual com camadas
-- Toggle Ativo/Inativo nos postos
-- Sistema de avaliação (4 categorias)
-- 6 temas visuais
+- Toggle Ativo/Inativo
+
+## Formato da Ordem de Abastecimento
+```
+🚛 *ORDEM DE ABASTECIMENTO*
+📍 Rota: Origem → Destino
+📏 Distância: X km
+
+*PARADAS:*
+
+*1ª abastecida*
+⛽ Posto: [Nome do Posto]
+📌 Local: [Cidade]
+🛣️ Km [X]
+💧 [COMPLETAR ou XXL]
+🗺️ [Link do Maps]
+
+*RESUMO:*
+⛽ Total estimado: XXL
+```
 
 ## APIs Disponíveis
 - `GET /api/stations` - Lista postos
@@ -37,10 +56,9 @@ Sistema inteligente de logística para controle de abastecimento de carretas de 
 - `DELETE /api/stations/{id}` - Remove posto
 - `GET /api/search-cities?query=` - Busca cidades
 - `POST /api/calculate-route` - Calcula rota
-- `POST /api/plan-fuel-stops` - Planeja abastecimentos
+- `POST /api/plan-fuel-stops` - Planeja abastecimentos (max 50km da rota)
 - `POST /api/ai-advisor` - Consultor IA
-- `POST /api/generate-service-order` - Ordem de 1 posto
-- `POST /api/generate-full-order` - **NOVO** Ordem completa
+- `POST /api/generate-full-order` - Ordem completa (+isComplete)
 
 ## Próximas Tarefas (Backlog)
 1. Histórico de viagens realizadas
@@ -52,9 +70,10 @@ Sistema inteligente de logística para controle de abastecimento de carretas de 
 ```
 /app/
 ├── backend/
-│   └── server.py (+generate-full-order endpoint)
+│   └── server.py (max_deviation=50km, isComplete support)
 ├── frontend/
-│   ├── src/components/ControlPanel.jsx (+busca, +edição, +ordem completa)
-│   └── src/pages/FleetDashboard.jsx (+handleUpdateFuelPlan, +handleGenerateFullOrder)
+│   ├── src/components/MapView.jsx (+Autocomplete search)
+│   ├── src/components/ControlPanel.jsx (+Completar button)
+│   └── src/pages/FleetDashboard.jsx (+handleToggleComplete)
 └── memory/PRD.md
 ```
