@@ -329,17 +329,13 @@ export default function FleetDashboard() {
       className={`relative h-screen w-screen overflow-hidden transition-colors duration-300 ${currentTheme.bg}`}
     >
       {/* Header */}
-      <header className={`absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-4 py-3 ${currentTheme.bg}/90 backdrop-blur-md border-b border-white/5`}>
+      <header className={`absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-4 py-2 ${currentTheme.bg}/90 backdrop-blur-md border-b border-white/5`}>
         <div className="flex items-center gap-3">
-          <div className={`p-2 rounded-lg ${currentTheme.accent.replace('text-', 'bg-')}/10`}>
-            <Fuel className={`w-6 h-6 ${currentTheme.accent}`} />
-          </div>
-          <div>
-            <h1 className={`font-heading text-xl font-bold tracking-tight uppercase ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
-              Bartz
-            </h1>
-            <p className="text-xs text-muted-foreground">Sistema de Gestão de Abastecimento</p>
-          </div>
+          <img 
+            src="/bartz-logo.png" 
+            alt="Bartz Logo" 
+            className="h-12 w-auto"
+          />
         </div>
         <div className="flex items-center gap-2">
           {/* Theme Selector */}
