@@ -649,37 +649,67 @@ export default function ControlPanel({
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-heading uppercase flex justify-between">
                     <span className="flex items-center gap-2"><Fuel className="w-4 h-4 text-primary" /> Postos</span>
-                    <span className="text-xs font-normal text-muted-foreground">{stations.length}</span>
+                    <span className="text-xs font-normal text-muted-foreground">{stations.filter(s => s.is_active !== false).length} ativos / {stations.length}</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
                   {stations.map((station) => {
                     const rating = station.ratings ? 
                       ((station.ratings.price_rating + station.ratings.service_rating + station.ratings.parking_rating + station.ratings.security_rating) / 4).toFixed(1) : 0;
+                    const isActive = station.is_active !== false;
                     return (
                       <div
                         key={station.id}
-                        onClick={() => setSelectedStation(station)}
-                        className={`p-3 rounded-lg border cursor-pointer transition-all ${
+                        className={`p-3 rounded-lg border transition-all ${
                           selectedStation?.id === station.id ? "border-primary bg-primary/10" : "border-white/5 bg-secondary/50 hover:bg-secondary"
-                        }`}
+                        } ${!isActive ? "opacity-60" : ""}`}
                       >
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <Fuel className={`w-4 h-4 ${station.is_active ? "text-primary" : "text-gray-500"}`} />
+                          <div 
+                            className="flex items-center gap-2 flex-1 cursor-pointer"
+                            onClick={() => setSelectedStation(station)}
+                          >
+                            <Fuel className={`w-4 h-4 ${isActive ? "text-primary" : "text-gray-500"}`} />
                             <div>
-                              <div className="font-medium text-sm">{station.name}</div>
+                              <div className="font-medium text-sm flex items-center gap-2">
+                                {station.name}
+                                {!isActive && (
+                                  <span className="text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded uppercase">
+                                    Inativo
+                                  </span>
+                                )}
+                              </div>
                               <div className="text-xs text-muted-foreground">{station.city}</div>
                             </div>
                           </div>
-                          <div className="text-right">
-                            <div className="font-mono font-bold text-primary">R$ {station.diesel_price?.toFixed(2)}</div>
-                            {rating > 0 && (
-                              <div className="flex items-center gap-1 justify-end text-xs">
-                                <Star size={10} className="text-yellow-400 fill-yellow-400" />
-                                {rating}
+                          <div className="flex items-center gap-2">
+                            <div className="text-right">
+                              <div className={`font-mono font-bold ${isActive ? "text-primary" : "text-gray-500"}`}>
+                                R$ {station.diesel_price?.toFixed(2)}
                               </div>
-                            )}
+                              {rating > 0 && (
+                                <div className="flex items-center gap-1 justify-end text-xs">
+                                  <Star size={10} className="text-yellow-400 fill-yellow-400" />
+                                  {rating}
+                                </div>
+                              )}
+                            </div>
+                            {/* Quick Toggle Button */}
+                            <button
+                              data-testid={`btn-toggle-active-${station.id}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                updateStation(station.id, { is_active: !isActive });
+                              }}
+                              className={`p-1.5 rounded-full transition-colors ${
+                                isActive 
+                                  ? "bg-green-500/20 text-green-400 hover:bg-green-500/30" 
+                                  : "bg-red-500/20 text-red-400 hover:bg-red-500/30"
+                              }`}
+                              title={isActive ? "Desativar posto" : "Ativar posto"}
+                            >
+                              <div className={`w-2 h-2 rounded-full ${isActive ? "bg-green-400" : "bg-red-400"}`} />
+                            </button>
                           </div>
                         </div>
                       </div>
