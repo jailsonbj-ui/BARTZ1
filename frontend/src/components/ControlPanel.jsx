@@ -691,7 +691,7 @@ export default function ControlPanel({
               {!selectedStation && (
                 <div className="text-center text-muted-foreground text-sm p-4 bg-secondary/50 rounded-lg border border-dashed border-white/10">
                   <MapPin className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                  <p>Use o botão <span className="text-green-400 font-medium">"Novo Posto"</span> no mapa</p>
+                  <p>Use o botão <span className="text-green-400 font-medium">Novo Posto</span> no mapa</p>
                   <p className="text-xs mt-1">ou clique em um posto para editar</p>
                 </div>
               )}
