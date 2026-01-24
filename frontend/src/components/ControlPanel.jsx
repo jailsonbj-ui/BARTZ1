@@ -754,6 +754,58 @@ export default function ControlPanel({
 
                     <Separator className="bg-white/5" />
 
+                    {/* Marker Customization */}
+                    <div className="space-y-3">
+                      <Label className="text-xs text-muted-foreground font-medium">Personalização do Marcador</Label>
+                      
+                      {/* Icon Selection */}
+                      <div>
+                        <Label className="text-xs text-muted-foreground mb-2 block">Ícone</Label>
+                        <div className="flex flex-wrap gap-2">
+                          {Object.entries(STATION_ICONS).map(([key, icon]) => (
+                            <button
+                              key={key}
+                              type="button"
+                              onClick={() => setStationForm({ ...stationForm, marker_icon: key })}
+                              className={`p-2 rounded-lg border transition-all ${
+                                stationForm.marker_icon === key 
+                                  ? "border-primary bg-primary/20" 
+                                  : "border-white/10 bg-secondary/50 hover:bg-secondary"
+                              }`}
+                              title={icon.name}
+                            >
+                              <svg width="20" height="20" viewBox="0 0 40 40" className="text-white">
+                                <path d={icon.path} fill="currentColor" opacity="0.9"/>
+                              </svg>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Color Selection */}
+                      <div>
+                        <Label className="text-xs text-muted-foreground mb-2 block">Cor</Label>
+                        <div className="flex flex-wrap gap-2">
+                          {Object.entries(STATION_COLORS).map(([key, color]) => (
+                            <button
+                              key={key}
+                              type="button"
+                              onClick={() => setStationForm({ ...stationForm, marker_color: key })}
+                              className={`w-7 h-7 rounded-full border-2 transition-all ${
+                                stationForm.marker_color === key 
+                                  ? "border-white scale-110" 
+                                  : "border-transparent hover:scale-105"
+                              }`}
+                              style={{ backgroundColor: color.hex }}
+                              title={color.name}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    <Separator className="bg-white/5" />
+
                     {/* Ratings */}
                     <div className="space-y-2">
                       <Label className="text-xs text-muted-foreground font-medium">Avaliações</Label>
