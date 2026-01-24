@@ -138,13 +138,24 @@ class FleetFuelAPITester:
             # Test get single station
             self.run_test("Get Single Station", "GET", f"stations/{self.created_station_id}", 200)
             
-            # Test update station
+            # Test update station with new rating fields
             update_data = {
                 "name": "Updated Test Station",
                 "diesel_price": 5.99,
-                "is_active": False
+                "is_active": False,
+                "ratings": {
+                    "price_rating": 2,
+                    "service_rating": 3,
+                    "parking_rating": 4,
+                    "security_rating": 5
+                },
+                "parking": {
+                    "has_parking": True,
+                    "parking_type": "paid",
+                    "min_fuel_liters": None
+                }
             }
-            self.run_test("Update Station", "PUT", f"stations/{self.created_station_id}", 200, update_data)
+            self.run_test("Update Station with Ratings", "PUT", f"stations/{self.created_station_id}", 200, update_data)
             
             # Test delete station
             self.run_test("Delete Station", "DELETE", f"stations/{self.created_station_id}", 200)
