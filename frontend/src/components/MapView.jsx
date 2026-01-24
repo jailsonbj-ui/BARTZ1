@@ -453,6 +453,31 @@ export default function MapView({
           );
         })}
 
+        {/* Search Result Marker */}
+        {searchMarker && (
+          <Marker
+            position={{ lat: searchMarker.lat, lng: searchMarker.lng }}
+            icon={{
+              url: createSearchMarkerIcon(),
+              scaledSize: new window.google.maps.Size(40, 50),
+              anchor: new window.google.maps.Point(20, 50),
+            }}
+            onClick={() => setActiveInfoWindow("search")}
+            animation={window.google.maps.Animation.DROP}
+          >
+            {activeInfoWindow === "search" && (
+              <InfoWindow onCloseClick={() => setActiveInfoWindow(null)}>
+                <div className="p-2">
+                  <div className="font-medium text-sm text-gray-900">{searchMarker.name}</div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    {searchMarker.lat.toFixed(6)}, {searchMarker.lng.toFixed(6)}
+                  </div>
+                </div>
+              </InfoWindow>
+            )}
+          </Marker>
+        )}
+
         {/* New Station Marker (when creating) */}
         {newStationPosition && (
           <Marker
