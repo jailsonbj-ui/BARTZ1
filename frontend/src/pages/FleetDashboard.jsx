@@ -74,6 +74,7 @@ export default function FleetDashboard() {
   const [serviceOrder, setServiceOrder] = useState(null);
   const [fuelPlan, setFuelPlan] = useState(null);
   const [aiResponse, setAiResponse] = useState(null);
+  const [planModified, setPlanModified] = useState(false);
 
   useEffect(() => {
     fetchStations();
