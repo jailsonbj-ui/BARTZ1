@@ -498,7 +498,7 @@ export default function MapView({
                   mapType === "terrain" ? "bg-primary/20 text-primary" : "text-white hover:bg-white/10"
                 }`}
               >
-                <Mountain className="w-4 h-4" /> Relevo
+                <Globe className="w-4 h-4" /> Relevo
               </button>
               
               <button
