@@ -290,11 +290,6 @@ async def geocode_with_photon(query: str) -> List[dict]:
                 if country not in ["Brazil", "Brasil"]:
                     continue
                 
-                # Only cities/towns
-                osm_type = props.get("osm_value", "")
-                if osm_type not in ["city", "town", "village", "municipality", ""]:
-                    continue
-                
                 if len(coords) >= 2:
                     state = props.get("state", "")
                     city_name = props.get("name", props.get("city", query))
