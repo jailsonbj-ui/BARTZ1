@@ -326,13 +326,11 @@ async def geocode_with_google(query: str) -> Optional[GeocodingResult]:
 @api_router.get("/search-cities")
 async def search_cities(query: str):
     """Search for cities using Nominatim (OpenStreetMap)"""
-    print(f"[SEARCH-CITIES] Query: {query}", flush=True)
     if len(query) < 2:
         return []
     
     # Try Nominatim first
     results = await geocode_with_nominatim(query)
-    print(f"[SEARCH-CITIES] Nominatim returned: {len(results)} results", flush=True)
     if results:
         return results
     
@@ -349,7 +347,6 @@ async def search_cities(query: str):
                 "latitude": city["lat"],
                 "longitude": city["lng"]
             })
-    print(f"[SEARCH-CITIES] Local fallback: {len(local_results)} results", flush=True)
     return local_results[:10]
 
 async def geocode_location(query: str) -> Optional[GeocodingResult]:
