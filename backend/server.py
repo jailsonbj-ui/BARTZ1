@@ -514,12 +514,12 @@ def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
 
 @api_router.post("/calculate-route")
 async def calculate_route(request: RouteRequest):
-    """Calculate route using OSRM"""
+    """Calculate route using Google Directions or OSRM"""
     locations = []
     
     origin = await geocode_location(request.origin_city)
     if not origin:
-        raise HTTPException(status_code=400, detail=f"Cidade não encontrada: {request.origin_city}. Use a busca de cidades.")
+        raise HTTPException(status_code=400, detail=f"Cidade não encontrada: {request.origin_city}")
     locations.append({"name": origin.name, "lat": origin.latitude, "lng": origin.longitude})
     
     for wp_city in request.waypoint_cities:
@@ -530,11 +530,15 @@ async def calculate_route(request: RouteRequest):
     
     dest = await geocode_location(request.destination_city)
     if not dest:
-        raise HTTPException(status_code=400, detail=f"Cidade não encontrada: {request.destination_city}. Use a busca de cidades.")
+        raise HTTPException(status_code=400, detail=f"Cidade não encontrada: {request.destination_city}")
     locations.append({"name": dest.name, "lat": dest.latitude, "lng": dest.longitude})
     
     coordinates = [(loc["lat"], loc["lng"]) for loc in locations]
-    route_data = await get_route_from_osrm(coordinates)
+    
+    # Try Google Directions first, fallback to OSRM
+    route_data = await get_route_from_google(coordinates)
+    if not route_data:
+        route_data = await get_route_from_osrm(coordinates)
     
     if not route_data:
         raise HTTPException(status_code=500, detail="Erro ao calcular rota. Tente novamente.")
