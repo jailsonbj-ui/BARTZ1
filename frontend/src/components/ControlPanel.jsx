@@ -131,6 +131,8 @@ export default function ControlPanel({
   searchCities,
   isLoading,
   theme,
+  onAskAI,
+  aiResponse,
 }) {
   const [copied, setCopied] = useState(false);
   const [stationForm, setStationForm] = useState({
