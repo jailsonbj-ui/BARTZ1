@@ -49,10 +49,35 @@ const getOverallRating = (ratings) => {
   return ((price_rating + service_rating + parking_rating + security_rating) / 4).toFixed(1);
 };
 
+// Station icon types and colors
+const STATION_ICONS = {
+  fuel: { name: "Combustível", path: "M15 14h10v12h-10z M17 10h6v4h-6z M13 20h4v6h-4z" },
+  star: { name: "Estrela", path: "M20 8l3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z" },
+  circle: { name: "Círculo", path: "M20 12a8 8 0 100 16 8 8 0 000-16z" },
+  square: { name: "Quadrado", path: "M12 12h16v16h-16z" },
+  diamond: { name: "Losango", path: "M20 8l10 12-10 12-10-12z" },
+  truck: { name: "Caminhão", path: "M10 16h14v8h-14z M24 18h4l3 4v2h-7z M13 26a2 2 0 100-4 2 2 0 000 4z M25 26a2 2 0 100-4 2 2 0 000 4z" },
+};
+
+const STATION_COLORS = {
+  orange: { name: "Laranja", hex: "#F97316" },
+  blue: { name: "Azul", hex: "#3B82F6" },
+  green: { name: "Verde", hex: "#10B981" },
+  red: { name: "Vermelho", hex: "#EF4444" },
+  purple: { name: "Roxo", hex: "#8B5CF6" },
+  yellow: { name: "Amarelo", hex: "#EAB308" },
+  pink: { name: "Rosa", hex: "#EC4899" },
+  cyan: { name: "Ciano", hex: "#06B6D4" },
+};
+
 // Custom marker icons using SVG data URLs
 const createStationMarkerIcon = (station, isPlannedStop, stopNumber) => {
   const isActive = station.is_active !== false;
-  const color = isPlannedStop ? "#10B981" : isActive ? "#F97316" : "#64748B";
+  const customColor = station.marker_color || "orange";
+  const customIcon = station.marker_icon || "fuel";
+  
+  const baseColor = isPlannedStop ? "#10B981" : isActive ? (STATION_COLORS[customColor]?.hex || "#F97316") : "#64748B";
+  const iconPath = STATION_ICONS[customIcon]?.path || STATION_ICONS.fuel.path;
   const opacity = isActive ? "1" : "0.6";
   
   const svg = `
@@ -62,16 +87,19 @@ const createStationMarkerIcon = (station, isPlannedStop, stopNumber) => {
           <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000" flood-opacity="0.3"/>
         </filter>
       </defs>
-      <circle cx="20" cy="20" r="16" fill="${color}" stroke="white" stroke-width="3" filter="url(#shadow)"/>
-      <path d="M15 14h10v12h-10z M17 10h6v4h-6z M13 20h4v6h-4z" fill="white" opacity="0.9"/>
+      <circle cx="20" cy="20" r="16" fill="${baseColor}" stroke="white" stroke-width="3" filter="url(#shadow)"/>
+      <path d="${iconPath}" fill="white" opacity="0.9" transform="scale(0.6) translate(13, 13)"/>
       ${isPlannedStop ? `<circle cx="32" cy="8" r="8" fill="#10B981" stroke="white" stroke-width="2"/><text x="32" y="12" text-anchor="middle" fill="white" font-size="10" font-weight="bold">${stopNumber}</text>` : ''}
       ${!isActive ? `<line x1="8" y1="8" x2="32" y2="32" stroke="#EF4444" stroke-width="3"/>` : ''}
       <rect x="5" y="42" width="30" height="14" rx="3" fill="#0F172A"/>
-      <text x="20" y="52" text-anchor="middle" fill="${isActive ? '#F97316' : '#64748B'}" font-size="9" font-weight="bold" font-family="monospace">R$${station.diesel_price?.toFixed(2) || '0.00'}</text>
+      <text x="20" y="52" text-anchor="middle" fill="${isActive ? baseColor : '#64748B'}" font-size="9" font-weight="bold" font-family="monospace">R$${station.diesel_price?.toFixed(2) || '0.00'}</text>
     </svg>
   `;
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 };
+
+// Export for use in ControlPanel
+export { STATION_ICONS, STATION_COLORS };
 
 const createRoutePointIcon = (type) => {
   const colors = {
