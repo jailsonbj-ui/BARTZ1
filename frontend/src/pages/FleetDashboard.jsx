@@ -330,14 +330,13 @@ export default function FleetDashboard() {
     >
       {/* Header */}
       <header className={`absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-6 py-3 ${currentTheme.bg}/95 backdrop-blur-md border-b border-white/10`}>
-        <div className="flex items-center">
-          <div className={`${theme === 'light' ? '' : 'bg-white/90 rounded-lg px-3 py-1'}`}>
-            <img 
-              src="/bartz-logo.png" 
-              alt="Bartz" 
-              className="h-9 w-auto object-contain"
-            />
-          </div>
+        <div className="flex items-center gap-2">
+          <h1 className={`font-heading text-xl font-bold tracking-tight ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
+            BARTZ
+          </h1>
+          <span className={`text-sm ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
+            - Gestão inteligente de abastecimento
+          </span>
         </div>
         <div className="flex items-center gap-2">
           {/* Theme Selector */}
