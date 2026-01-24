@@ -480,7 +480,7 @@ export default function MapView({
                   mapType === "roadmap" ? "bg-primary/20 text-primary" : "text-white hover:bg-white/10"
                 }`}
               >
-                <Map className="w-4 h-4" /> Mapa
+                <MapIcon className="w-4 h-4" /> Mapa
               </button>
               
               <button
