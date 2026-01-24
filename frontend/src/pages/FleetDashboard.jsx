@@ -336,7 +336,7 @@ export default function FleetDashboard() {
           </div>
           <div>
             <h1 className={`font-heading text-xl font-bold tracking-tight uppercase ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
-              SmartFuel
+              Bartz
             </h1>
             <p className="text-xs text-muted-foreground">Sistema de Gestão de Abastecimento</p>
           </div>
