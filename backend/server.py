@@ -265,52 +265,52 @@ GOOGLE_MAPS_API_KEY = os.environ.get('GOOGLE_MAPS_API_KEY')
 
 async def geocode_with_nominatim(query: str) -> List[dict]:
     """Geocode using Nominatim API (OpenStreetMap - free)"""
-    logger.info(f"Nominatim search for: {query}")
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.get(
-                "https://nominatim.openstreetmap.org/search",
-                params={
-                    "q": query,
-                    "countrycodes": "br",
-                    "format": "json",
-                    "limit": 10,
-                    "addressdetails": 1,
-                    "accept-language": "pt-BR"
-                },
-                headers={"User-Agent": "SmartFuel/2.0 (contact@smartfuel.com.br)"},
-                timeout=15.0
-            )
-            logger.info(f"Nominatim response status: {response.status_code}")
-            data = response.json()
-            logger.info(f"Nominatim results count: {len(data)}")
+    import urllib.request
+    import urllib.parse
+    import json as json_module
+    
+    try:
+        params = urllib.parse.urlencode({
+            "q": query,
+            "countrycodes": "br",
+            "format": "json",
+            "limit": 10,
+            "addressdetails": 1
+        })
+        url = f"https://nominatim.openstreetmap.org/search?{params}"
+        
+        req = urllib.request.Request(
+            url,
+            headers={"User-Agent": "SmartFuel/2.0 (contact@smartfuel.com.br)"}
+        )
+        
+        with urllib.request.urlopen(req, timeout=15) as response:
+            data = json_module.loads(response.read().decode())
+        
+        results = []
+        seen = set()
+        
+        for item in data:
+            addr = item.get("address", {})
+            state = addr.get("state", "")
+            city_name = item.get("name", addr.get("city", addr.get("town", addr.get("municipality", query))))
             
-            results = []
-            seen = set()
+            key = f"{city_name}_{state}"
+            if key in seen:
+                continue
+            seen.add(key)
             
-            for item in data:
-                addr = item.get("address", {})
-                state = addr.get("state", "")
-                city_name = item.get("name", addr.get("city", addr.get("town", addr.get("municipality", query))))
-                
-                # Avoid duplicates
-                key = f"{city_name}_{state}"
-                if key in seen:
-                    continue
-                seen.add(key)
-                
-                results.append({
-                    "name": city_name,
-                    "state": state,
-                    "display_name": f"{city_name}, {state}" if state else city_name,
-                    "latitude": float(item["lat"]),
-                    "longitude": float(item["lon"])
-                })
-            
-            logger.info(f"Returning {len(results)} results")
-            return results[:8]
-        except Exception as e:
-            logger.error(f"Nominatim geocoding error: {e}")
+            results.append({
+                "name": city_name,
+                "state": state,
+                "display_name": f"{city_name}, {state}" if state else city_name,
+                "latitude": float(item["lat"]),
+                "longitude": float(item["lon"])
+            })
+        
+        return results[:8]
+    except Exception as e:
+        logger.error(f"Nominatim error: {e}")
     return []
 
 async def geocode_with_google(query: str) -> Optional[GeocodingResult]:
