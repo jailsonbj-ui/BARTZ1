@@ -568,24 +568,70 @@ export default function ControlPanel({
                     {/* AI Summary */}
                     {fuelPlan.ai_summary && (
                       <div className="bg-gradient-to-r from-violet-500/10 to-purple-500/10 border border-violet-500/30 rounded-lg p-3">
-                        <div className="flex items-center gap-2 text-violet-400 font-medium text-xs mb-2">
-                          <Sparkles className="w-3 h-3" /> Análise da IA
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2 text-violet-400 font-medium text-xs">
+                            <Sparkles className="w-3 h-3" /> Análise da IA
+                          </div>
+                          {planModified && (
+                            <button
+                              onClick={() => onReanalyze && onReanalyze(fuelPlan)}
+                              disabled={isLoading}
+                              className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 border border-amber-500/50 transition-colors animate-pulse"
+                              title="Plano modificado - clique para reanalisar"
+                            >
+                              {isLoading ? (
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <RefreshCw className="w-3 h-3" />
+                              )}
+                              Reanalisar
+                            </button>
+                          )}
                         </div>
                         <div className="text-sm text-muted-foreground">
                           {fuelPlan.ai_summary}
                         </div>
+                        {planModified && (
+                          <div className="mt-2 text-xs text-amber-400/80 flex items-center gap-1">
+                            <AlertTriangle className="w-3 h-3" />
+                            Plano foi modificado. Recomendamos reanalisar.
+                          </div>
+                        )}
                       </div>
                     )}
 
                     {/* AI Advisor Response */}
                     {aiResponse && (
                       <div className="bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border border-cyan-500/30 rounded-lg p-3">
-                        <div className="flex items-center gap-2 text-cyan-400 font-medium text-xs mb-2">
-                          <Sparkles className="w-3 h-3" /> Consultor IA
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2 text-cyan-400 font-medium text-xs">
+                            <Sparkles className="w-3 h-3" /> Consultor IA
+                          </div>
+                          {planModified && (
+                            <button
+                              onClick={() => onReanalyze && onReanalyze(fuelPlan)}
+                              disabled={isLoading}
+                              className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 border border-amber-500/50 transition-colors animate-pulse"
+                              title="Plano modificado - clique para reanalisar"
+                            >
+                              {isLoading ? (
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <RefreshCw className="w-3 h-3" />
+                              )}
+                              Reanalisar
+                            </button>
+                          )}
                         </div>
                         <div className="text-sm text-foreground whitespace-pre-wrap">
                           {aiResponse}
                         </div>
+                        {planModified && (
+                          <div className="mt-2 text-xs text-amber-400/80 flex items-center gap-1">
+                            <AlertTriangle className="w-3 h-3" />
+                            Plano foi modificado. Recomendamos reanalisar.
+                          </div>
+                        )}
                       </div>
                     )}
 
