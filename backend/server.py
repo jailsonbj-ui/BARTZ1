@@ -212,6 +212,23 @@ def normalize_text(text: str) -> str:
     text = ''.join(c for c in text if not unicodedata.combining(c))
     return text.strip()
 
+def get_city_coords(city_name: str) -> Optional[dict]:
+    """Get city coordinates from local database"""
+    normalized = normalize_text(city_name)
+    
+    for city in BRAZILIAN_CITIES:
+        city_norm = normalize_text(city["name"])
+        city_full = normalize_text(f"{city['name']} {city['state']}")
+        city_full2 = normalize_text(f"{city['name']}, {city['state']}")
+        
+        if normalized == city_norm or normalized == city_full or normalized == city_full2 or normalized in city_full:
+            return {
+                "name": f"{city['name']}, {city['state']}",
+                "lat": city["lat"],
+                "lng": city["lng"]
+            }
+    return None
+
 @api_router.get("/search-cities")
 async def search_cities(query: str):
     """Search for cities with autocomplete"""
