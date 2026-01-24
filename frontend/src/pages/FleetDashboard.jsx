@@ -121,6 +121,7 @@ export default function FleetDashboard() {
     setIsLoading(true);
     setFuelPlan(null);
     setAiResponse(null);
+    setPlanModified(false);
     try {
       const response = await axios.post(`${API}/calculate-route`, {
         origin_city: originCity,
