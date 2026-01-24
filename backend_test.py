@@ -208,15 +208,36 @@ class FleetFuelAPITester:
                     print(f"⚠️  AI recommendation returned but no recommendation found")
     
     def test_search_functionality(self):
-        """Test station search functionality"""
+        """Test search functionality including new city autocomplete"""
         print("\n=== TESTING SEARCH FUNCTIONALITY ===")
         
-        # Test station search
+        # Test new city autocomplete endpoint
+        success, search_result = self.run_test("City Autocomplete - Porto", "GET", "search-cities?query=Porto", 200)
+        if success:
+            print(f"✅ City autocomplete returned {len(search_result)} results")
+            if search_result and len(search_result) > 0:
+                first_city = search_result[0]
+                if 'name' in first_city and 'state' in first_city:
+                    print(f"   First result: {first_city['name']}, {first_city['state']}")
+                else:
+                    print(f"⚠️  City result missing name/state fields")
+        
+        # Test city autocomplete with partial match
+        success, search_result = self.run_test("City Autocomplete - Recife", "GET", "search-cities?query=Rec", 200)
+        if success:
+            print(f"✅ Partial city search returned {len(search_result)} results")
+        
+        # Test empty query (should return empty)
+        success, search_result = self.run_test("City Autocomplete - Empty", "GET", "search-cities?query=", 200)
+        if success:
+            print(f"✅ Empty query returned {len(search_result)} results (should be 0)")
+        
+        # Test station search (if endpoint exists)
         success, search_result = self.run_test("Search Stations", "GET", "search-stations?query=posto", 200)
         if success:
             print(f"✅ Station search returned {len(search_result)} results")
         
-        # Test geocoding search
+        # Test geocoding search (if endpoint exists)
         success, geo_result = self.run_test("Geocode Search", "GET", "geocode?query=Curitiba", 200)
         if success:
             print(f"✅ Geocoding search returned {len(geo_result)} results")
