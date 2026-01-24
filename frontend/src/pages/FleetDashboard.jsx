@@ -329,14 +329,15 @@ export default function FleetDashboard() {
       className={`relative h-screen w-screen overflow-hidden transition-colors duration-300 ${currentTheme.bg}`}
     >
       {/* Header */}
-      <header className={`absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-4 py-3 ${currentTheme.bg}/95 backdrop-blur-md border-b border-white/10`}>
+      <header className={`absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-6 py-3 ${currentTheme.bg}/95 backdrop-blur-md border-b border-white/10`}>
         <div className="flex items-center">
-          <img 
-            src="/bartz-logo.png" 
-            alt="Bartz Logo" 
-            className="h-10 w-auto object-contain"
-            style={{ filter: theme === 'light' ? 'none' : 'brightness(1.1)' }}
-          />
+          <div className={`${theme === 'light' ? '' : 'bg-white/90 rounded-lg px-3 py-1'}`}>
+            <img 
+              src="/bartz-logo.png" 
+              alt="Bartz" 
+              className="h-9 w-auto object-contain"
+            />
+          </div>
         </div>
         <div className="flex items-center gap-2">
           {/* Theme Selector */}
