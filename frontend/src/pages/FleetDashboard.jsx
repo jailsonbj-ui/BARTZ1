@@ -264,6 +264,38 @@ export default function FleetDashboard() {
     }
   };
 
+  const handleUpdateFuelPlan = (updatedPlan) => {
+    setFuelPlan(updatedPlan);
+    toast.success("Plano atualizado!");
+  };
+
+  const handleGenerateFullOrder = async (currentFuelPlan) => {
+    if (!currentFuelPlan?.stops?.length) {
+      toast.error("Nenhuma parada no plano!");
+      return;
+    }
+    
+    setIsLoading(true);
+    try {
+      const response = await axios.post(`${API}/generate-full-order`, {
+        origin: originCity,
+        destination: destinationCity,
+        route_distance: routeData?.total_distance || 0,
+        stops: currentFuelPlan.stops,
+        total_fuel: currentFuelPlan.total_fuel_liters,
+        total_cost: currentFuelPlan.total_cost,
+      });
+      
+      setServiceOrder(response.data);
+      toast.success("Ordem de abastecimento gerada!");
+    } catch (error) {
+      console.error("Error generating full order:", error);
+      toast.error("Erro ao gerar ordem");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const addWaypoint = () => setWaypointCities([...waypointCities, ""]);
   const removeWaypoint = (index) => setWaypointCities(waypointCities.filter((_, i) => i !== index));
   const updateWaypoint = (index, value) => setWaypointCities(waypointCities.map((wp, i) => (i === index ? value : wp)));
