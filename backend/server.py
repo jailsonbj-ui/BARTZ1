@@ -242,27 +242,133 @@ async def search_cities(query: str):
     
     return results[:10]
 
-# ========== GEOCODING ==========
+# ========== GEOCODING (Google Maps) ==========
 
-def get_city_coords(city_name: str) -> Optional[dict]:
-    """Get city coordinates from database"""
-    normalized = normalize_text(city_name)
+GOOGLE_MAPS_API_KEY = os.environ.get('GOOGLE_MAPS_API_KEY')
+
+async def geocode_with_google(query: str) -> Optional[GeocodingResult]:
+    """Geocode using Google Maps API"""
+    if not GOOGLE_MAPS_API_KEY:
+        return None
     
-    for city in BRAZILIAN_CITIES:
-        city_norm = normalize_text(city["name"])
-        city_full = normalize_text(f"{city['name']} {city['state']}")
-        city_full2 = normalize_text(f"{city['name']}, {city['state']}")
-        
-        if normalized == city_norm or normalized == city_full or normalized == city_full2 or normalized in city_full:
-            return {
-                "name": f"{city['name']}, {city['state']}",
-                "lat": city["lat"],
-                "lng": city["lng"]
-            }
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(
+                "https://maps.googleapis.com/maps/api/geocode/json",
+                params={
+                    "address": f"{query}, Brasil",
+                    "key": GOOGLE_MAPS_API_KEY,
+                    "language": "pt-BR",
+                    "region": "br"
+                },
+                timeout=10.0
+            )
+            data = response.json()
+            
+            if data.get("status") == "OK" and data.get("results"):
+                result = data["results"][0]
+                location = result["geometry"]["location"]
+                return GeocodingResult(
+                    name=result.get("formatted_address", query),
+                    latitude=location["lat"],
+                    longitude=location["lng"],
+                    display_name=result.get("formatted_address", query)
+                )
+        except Exception as e:
+            logger.error(f"Google geocoding error: {e}")
     return None
 
+@api_router.get("/search-cities")
+async def search_cities(query: str):
+    """Search for cities using Google Maps Autocomplete"""
+    if len(query) < 2:
+        return []
+    
+    if not GOOGLE_MAPS_API_KEY:
+        # Fallback to local database
+        normalized_query = normalize_text(query)
+        results = []
+        for city in BRAZILIAN_CITIES:
+            city_name = normalize_text(city["name"])
+            if normalized_query in city_name:
+                results.append({
+                    "name": city["name"],
+                    "state": city["state"],
+                    "display_name": f"{city['name']}, {city['state']}",
+                    "latitude": city["lat"],
+                    "longitude": city["lng"]
+                })
+        return results[:10]
+    
+    async with httpx.AsyncClient() as client:
+        try:
+            # Use Google Places Autocomplete
+            response = await client.get(
+                "https://maps.googleapis.com/maps/api/place/autocomplete/json",
+                params={
+                    "input": query,
+                    "types": "(cities)",
+                    "components": "country:br",
+                    "key": GOOGLE_MAPS_API_KEY,
+                    "language": "pt-BR"
+                },
+                timeout=10.0
+            )
+            data = response.json()
+            
+            if data.get("status") == "OK":
+                results = []
+                for prediction in data.get("predictions", [])[:8]:
+                    # Get place details to get coordinates
+                    place_id = prediction.get("place_id")
+                    if place_id:
+                        detail_response = await client.get(
+                            "https://maps.googleapis.com/maps/api/place/details/json",
+                            params={
+                                "place_id": place_id,
+                                "fields": "geometry,formatted_address,name,address_components",
+                                "key": GOOGLE_MAPS_API_KEY,
+                                "language": "pt-BR"
+                            },
+                            timeout=10.0
+                        )
+                        detail_data = detail_response.json()
+                        
+                        if detail_data.get("status") == "OK":
+                            place = detail_data.get("result", {})
+                            location = place.get("geometry", {}).get("location", {})
+                            
+                            # Extract state from address components
+                            state = ""
+                            for comp in place.get("address_components", []):
+                                if "administrative_area_level_1" in comp.get("types", []):
+                                    state = comp.get("short_name", "")
+                                    break
+                            
+                            results.append({
+                                "name": place.get("name", prediction.get("description", "")),
+                                "state": state,
+                                "display_name": place.get("formatted_address", prediction.get("description", "")),
+                                "latitude": location.get("lat"),
+                                "longitude": location.get("lng")
+                            })
+                
+                return results
+            
+        except Exception as e:
+            logger.error(f"Google Places error: {e}")
+    
+    return []
+
 async def geocode_location(query: str) -> Optional[GeocodingResult]:
-    """Geocode a location"""
+    """Geocode a location - try Google first, then fallback to local"""
+    
+    # Try Google Maps first
+    result = await geocode_with_google(query)
+    if result:
+        return result
+    
+    # Fallback to local database
     city = get_city_coords(query)
     if city:
         return GeocodingResult(
@@ -271,7 +377,98 @@ async def geocode_location(query: str) -> Optional[GeocodingResult]:
             longitude=city["lng"],
             display_name=city["name"]
         )
+    
     return None
+
+# ========== ROUTING (Google Directions or OSRM) ==========
+
+async def get_route_from_google(coordinates: List[tuple]) -> dict:
+    """Get route from Google Directions API"""
+    if not GOOGLE_MAPS_API_KEY or len(coordinates) < 2:
+        return None
+    
+    origin = f"{coordinates[0][0]},{coordinates[0][1]}"
+    destination = f"{coordinates[-1][0]},{coordinates[-1][1]}"
+    
+    waypoints = ""
+    if len(coordinates) > 2:
+        waypoints = "|".join([f"{c[0]},{c[1]}" for c in coordinates[1:-1]])
+    
+    async with httpx.AsyncClient() as client:
+        try:
+            params = {
+                "origin": origin,
+                "destination": destination,
+                "key": GOOGLE_MAPS_API_KEY,
+                "mode": "driving",
+                "language": "pt-BR",
+                "region": "br"
+            }
+            if waypoints:
+                params["waypoints"] = waypoints
+            
+            response = await client.get(
+                "https://maps.googleapis.com/maps/api/directions/json",
+                params=params,
+                timeout=30.0
+            )
+            data = response.json()
+            
+            if data.get("status") == "OK" and data.get("routes"):
+                route = data["routes"][0]
+                
+                # Calculate total distance and duration
+                total_distance = sum(leg["distance"]["value"] for leg in route["legs"]) / 1000
+                total_duration = sum(leg["duration"]["value"] for leg in route["legs"]) / 60
+                
+                # Decode polyline to get geometry
+                geometry = []
+                for leg in route["legs"]:
+                    for step in leg["steps"]:
+                        points = decode_polyline(step["polyline"]["points"])
+                        geometry.extend(points)
+                
+                return {
+                    "distance": total_distance,
+                    "duration": total_duration,
+                    "geometry": geometry  # [lng, lat] format
+                }
+        except Exception as e:
+            logger.error(f"Google Directions error: {e}")
+    
+    return None
+
+def decode_polyline(polyline_str: str) -> List[List[float]]:
+    """Decode Google polyline encoding to coordinates"""
+    index, lat, lng = 0, 0, 0
+    coordinates = []
+    
+    while index < len(polyline_str):
+        # Decode latitude
+        shift, result = 0, 0
+        while True:
+            b = ord(polyline_str[index]) - 63
+            index += 1
+            result |= (b & 0x1f) << shift
+            shift += 5
+            if b < 0x20:
+                break
+        lat += (~(result >> 1) if result & 1 else result >> 1)
+        
+        # Decode longitude
+        shift, result = 0, 0
+        while True:
+            b = ord(polyline_str[index]) - 63
+            index += 1
+            result |= (b & 0x1f) << shift
+            shift += 5
+            if b < 0x20:
+                break
+        lng += (~(result >> 1) if result & 1 else result >> 1)
+        
+        coordinates.append([lng / 1e5, lat / 1e5])
+    
+    return coordinates
 
 # ========== ROUTING (OSRM) ==========
 
