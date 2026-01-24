@@ -443,8 +443,41 @@ export default function MapView({
         )}
       </GoogleMap>
 
+      {/* Search Bar Overlay */}
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 w-80">
+        <Autocomplete
+          onLoad={onSearchLoad}
+          onPlaceChanged={onPlaceChanged}
+          options={{
+            componentRestrictions: { country: "br" },
+            types: ["geocode", "establishment"],
+          }}
+        >
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Input
+              ref={searchInputRef}
+              data-testid="input-map-search"
+              type="text"
+              placeholder="Buscar local no mapa..."
+              value={searchValue}
+              onChange={(e) => setSearchValue(e.target.value)}
+              className="pl-10 pr-8 bg-slate-900/95 backdrop-blur-sm border-white/20 text-white placeholder:text-gray-400 shadow-lg"
+            />
+            {searchValue && (
+              <button
+                onClick={() => setSearchValue("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </Autocomplete>
+      </div>
+
       {/* Map Controls Overlay */}
-      <div className="absolute top-4 left-4 flex flex-col gap-2 z-10">
+      <div className="absolute top-16 left-4 flex flex-col gap-2 z-10">
         {/* Add Station Button */}
         {!isCreatingStation ? (
           <Button
