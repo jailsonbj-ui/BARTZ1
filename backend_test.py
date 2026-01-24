@@ -217,6 +217,76 @@ class FleetFuelAPITester:
             if stations_success:
                 print(f"✅ Found {len(stations_result)} stations along route")
 
+    def test_multi_stop_fuel_planning(self):
+        """Test multi-stop fuel planning for long routes (POA -> Recife)"""
+        print("\n=== TESTING MULTI-STOP FUEL PLANNING ===")
+        
+        # First calculate a long route (POA -> Recife)
+        route_data = {
+            "origin_city": "Porto Alegre, RS",
+            "destination_city": "Recife, PE", 
+            "waypoint_cities": [],
+            "vehicle": {
+                "current_liters": 200,
+                "consumption_rate": 2.5,
+                "tank_capacity": 500
+            }
+        }
+        
+        success, route_result = self.run_test("Calculate Long Route (POA-Recife)", "POST", "calculate-route", 200, route_data)
+        
+        if success and 'route_geometry' in route_result:
+            distance = route_result.get('total_distance', 0)
+            print(f"   Route distance: {distance} km")
+            
+            # Check if this is a realistic long distance (POA-Recife should be ~3896km)
+            if distance > 3000:
+                print(f"✅ Long route distance looks realistic")
+                
+                # Now test fuel planning for this route
+                # Get stations first
+                stations_success, stations_data = self.run_test("Get Stations for Planning", "GET", "stations", 200)
+                
+                if stations_success and stations_data:
+                    fuel_plan_data = {
+                        "route_distance": distance,
+                        "route_geometry": route_result['route_geometry'],
+                        "vehicle": route_data['vehicle'],
+                        "stations": stations_data
+                    }
+                    
+                    success, plan_result = self.run_test("Plan Multi-Stop Fuel", "POST", "plan-fuel-stops", 200, fuel_plan_data)
+                    
+                    if success:
+                        required_fields = ['stops', 'total_stops', 'total_fuel_liters', 'total_cost', 'gaps', 'has_gaps']
+                        missing_fields = [field for field in required_fields if field not in plan_result]
+                        if missing_fields:
+                            print(f"⚠️  Missing fields in fuel plan: {missing_fields}")
+                        else:
+                            print(f"✅ Fuel planning returned all required fields")
+                            print(f"   Total stops: {plan_result.get('total_stops', 0)}")
+                            print(f"   Total fuel: {plan_result.get('total_fuel_liters', 0):.1f}L")
+                            print(f"   Total cost: R${plan_result.get('total_cost', 0):.2f}")
+                            print(f"   Has gaps: {plan_result.get('has_gaps', False)}")
+                            
+                            # Check if AI summary was generated
+                            if 'ai_summary' in plan_result and plan_result['ai_summary']:
+                                print(f"✅ AI summary generated: {plan_result['ai_summary'][:100]}...")
+                            
+                            # Verify stops structure
+                            stops = plan_result.get('stops', [])
+                            if stops:
+                                first_stop = stops[0]
+                                stop_fields = ['station', 'distance_from_start', 'fuel_to_add', 'cost', 'reason']
+                                missing_stop_fields = [f for f in stop_fields if f not in first_stop]
+                                if missing_stop_fields:
+                                    print(f"⚠️  Missing stop fields: {missing_stop_fields}")
+                                else:
+                                    print(f"✅ Stop structure is complete")
+                                    print(f"   First stop: {first_stop['station']['name']} at {first_stop['distance_from_start']}km")
+            else:
+                print(f"⚠️  Route distance seems too short for POA-Recife")
+
     def test_ai_recommendation(self):
         """Test AI recommendation functionality"""
         print("\n=== TESTING AI RECOMMENDATION ===")
