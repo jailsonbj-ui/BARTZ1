@@ -133,8 +133,13 @@ export default function ControlPanel({
   theme,
   onAskAI,
   aiResponse,
+  onUpdateFuelPlan,
+  onGenerateFullOrder,
 }) {
   const [copied, setCopied] = useState(false);
+  const [stationSearchQuery, setStationSearchQuery] = useState("");
+  const [editingStopIndex, setEditingStopIndex] = useState(null);
+  const [editingLiters, setEditingLiters] = useState(0);
   const [stationForm, setStationForm] = useState({
     name: "",
     diesel_price: 5.5,
@@ -146,6 +151,16 @@ export default function ControlPanel({
 
   const autonomy = vehicle.current_liters * vehicle.consumption_rate;
   const autonomyPercent = Math.min((autonomy / (routeData?.total_distance || 1000)) * 100, 100);
+
+  // Filter stations by search query
+  const filteredStations = stations.filter(station => {
+    if (!stationSearchQuery.trim()) return true;
+    const query = stationSearchQuery.toLowerCase();
+    return (
+      station.name?.toLowerCase().includes(query) ||
+      station.city?.toLowerCase().includes(query)
+    );
+  });
 
   useEffect(() => {
     if (selectedStation && !selectedStation.isNew) {
