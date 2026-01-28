@@ -84,6 +84,8 @@ class FuelStationUpdate(BaseModel):
     is_active: Optional[bool] = None
     ratings: Optional[StationRatings] = None
     parking: Optional[ParkingInfo] = None
+    marker_icon: Optional[str] = None
+    marker_color: Optional[str] = None
 
 class Vehicle(BaseModel):
     current_liters: float
