@@ -1,0 +1,123 @@
+{
+  "summary": "Bug verification testing completed. Both reported bugs are VERIFIED FIXED: Bug 1 (marker_icon/marker_color persistence) and Bug 2 (route replacement). Backend: 18/19 tests passed (94.7%). Frontend: All features working correctly.",
+  
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "/api/calculate-route",
+        "issue": "Invalid city returns 200 instead of 400 (uses fallback geocoding)",
+        "priority": "LOW"
+      }
+    ]
+  },
+  
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "Google Maps",
+        "issues": ["'For development purposes only' watermark - expected due to Google billing"]
+      }
+    ]
+  },
+  
+  "bugs_verified": {
+    "bug_1_marker_icon_color_persistence": {
+      "status": "FIXED",
+      "description": "Station marker_icon and marker_color are now saved correctly when editing a station",
+      "verification_method": [
+        "API test: PUT /api/stations/{id} with marker_icon='star', marker_color='blue' - values persisted",
+        "Frontend test: Changed icon to star and color to blue via UI, saved, verified on map",
+        "Pytest: TestBugFixes::test_bug1_marker_icon_and_color_persistence PASSED"
+      ],
+      "fix_location": "backend/server.py - FuelStationUpdate model (lines 81-88)"
+    },
+    "bug_2_route_replacement": {
+      "status": "FIXED",
+      "description": "New routes now replace old routes instead of overlaying",
+      "verification_method": [
+        "Frontend test: Calculated route POA->SP (1144km), then POA->Curitiba (742km)",
+        "Visual verification: Only ONE route line visible on map after second calculation",
+        "No overlapping routes observed"
+      ],
+      "fix_location": "frontend/src/components/MapView.jsx - Polyline with dynamic key (line 339)"
+    }
+  },
+  
+  "passed_tests": {
+    "backend": [
+      "API health endpoint - 200 OK",
+      "API root endpoint - 200 OK",
+      "GET /api/stations - returns list of stations",
+      "POST /api/stations - creates new station",
+      "PUT /api/stations/{id} - updates station with marker_icon/marker_color",
+      "DELETE /api/stations/{id} - removes station",
+      "City search - Porto, São Paulo, Recife",
+      "Route calculation - POA->SP (~1144km)",
+      "Route calculation - POA->Recife (~3896km)",
+      "Route calculation with waypoints",
+      "Multi-stop fuel planning",
+      "Service order generation",
+      "Seed stations endpoint",
+      "Bug fix test: marker_icon/color persistence",
+      "Bug fix test: field preservation on update"
+    ],
+    "frontend": [
+      "Google Maps loads with station markers",
+      "City autocomplete working",
+      "Route calculation displays distance and autonomy",
+      "Route displayed on map (single line, no overlay)",
+      "Fuel plan generated for long routes",
+      "Station editor opens correctly",
+      "Icon selector with 6 icons visible",
+      "Color selector with 8 colors visible",
+      "Icon/color changes saved successfully",
+      "Station list shows 16 stations",
+      "Tab navigation working (Rota, Veículo, Postos)"
+    ]
+  },
+  
+  "test_report_links": [
+    "/app/backend/tests/test_fleet_api.py",
+    "/app/test_reports/pytest/pytest_results_iteration5.xml"
+  ],
+  
+  "action_items": [],
+  
+  "critical_code_review_comments": [
+    "Bug fixes properly implemented in FuelStationUpdate model",
+    "Polyline key fix ensures route replacement works correctly",
+    "Minor: Invalid city geocoding returns 200 with fallback instead of 400 error"
+  ],
+  
+  "updated_files": [
+    "/app/backend/tests/test_fleet_api.py"
+  ],
+  
+  "success_rate": {
+    "backend": "94.7% (18/19 tests passed)",
+    "frontend": "100% (all features working)"
+  },
+  
+  "seed_data_creation": "Seed stations created via /api/seed-stations endpoint",
+  
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  
+  "context_for_next_testing_agent": "Both bugs verified fixed. Bug 1: marker_icon and marker_color now persist correctly when editing stations. Bug 2: Route replacement works - new routes replace old ones without overlay. All core features working: route calculation, fuel planning, station CRUD, city search.",
+  
+  "rca_of_the_issue": {
+    "bug_1": {
+      "root_cause": "FuelStationUpdate Pydantic model was missing marker_icon and marker_color fields",
+      "fix": "Added Optional[str] fields for marker_icon and marker_color to FuelStationUpdate model",
+      "verification": "API now accepts and persists these fields on PUT requests"
+    },
+    "bug_2": {
+      "root_cause": "Polyline component had static key, causing React to not re-render when route changed",
+      "fix": "Added dynamic key based on route geometry hash to force re-render",
+      "verification": "Visual test confirmed only one route line visible after calculating second route"
+    }
+  }
+}
