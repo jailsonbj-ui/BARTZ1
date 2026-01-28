@@ -261,6 +261,8 @@ export default function ControlPanel({
         city: stationForm.city,
         ratings: stationForm.ratings,
         parking: stationForm.parking,
+        marker_icon: stationForm.marker_icon,
+        marker_color: stationForm.marker_color,
       });
     } else if (selectedStation) {
       await updateStation(selectedStation.id, {
@@ -269,6 +271,8 @@ export default function ControlPanel({
         is_active: stationForm.is_active,
         ratings: stationForm.ratings,
         parking: stationForm.parking,
+        marker_icon: stationForm.marker_icon,
+        marker_color: stationForm.marker_color,
       });
     }
     setSelectedStation(null);
@@ -276,6 +280,8 @@ export default function ControlPanel({
       name: "", diesel_price: 5.5, is_active: true, city: "",
       ratings: { price_rating: 0, service_rating: 0, parking_rating: 0, security_rating: 0 },
       parking: { has_parking: true, parking_type: "free", min_fuel_liters: null },
+      marker_icon: "fuel",
+      marker_color: "orange",
     });
   };
 
