@@ -189,11 +189,31 @@ export default function MapView({
         const lat = place.geometry.location.lat();
         const lng = place.geometry.location.lng();
         
-        // Set search marker
+        // Extract city from address components
+        let city = "";
+        let placeName = place.name || "";
+        if (place.address_components) {
+          const cityComponent = place.address_components.find(
+            c => c.types.includes("administrative_area_level_2") || c.types.includes("locality")
+          );
+          const stateComponent = place.address_components.find(
+            c => c.types.includes("administrative_area_level_1")
+          );
+          if (cityComponent) {
+            city = cityComponent.long_name;
+            if (stateComponent) {
+              city += `-${stateComponent.short_name}`;
+            }
+          }
+        }
+        
+        // Set search marker with place info
         setSearchMarker({
           lat,
           lng,
-          name: place.formatted_address || place.name || "Local buscado"
+          name: place.formatted_address || place.name || "Local buscado",
+          placeName: placeName,
+          city: city
         });
         
         if (map) {
