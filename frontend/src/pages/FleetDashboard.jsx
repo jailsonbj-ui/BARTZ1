@@ -496,6 +496,7 @@ export default function FleetDashboard() {
         onToggleComplete={handleToggleComplete}
         onReanalyze={handleReanalyze}
         planModified={planModified}
+        onAddStationToPlan={handleAddStationToPlan}
       />
     </div>
   );
