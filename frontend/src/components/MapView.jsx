@@ -57,17 +57,30 @@ const STATION_ICONS = {
   square: { name: "Quadrado", path: "M12 12h16v16h-16z" },
   diamond: { name: "Losango", path: "M20 8l10 12-10 12-10-12z" },
   truck: { name: "Caminhão", path: "M10 16h14v8h-14z M24 18h4l3 4v2h-7z M13 26a2 2 0 100-4 2 2 0 000 4z M25 26a2 2 0 100-4 2 2 0 000 4z" },
+  shell: { name: "Shell", path: "M20 8c-6 0-10 6-10 12s4 8 10 8 10-2 10-8-4-12-10-12z M14 18c0-3 2-6 6-6" },
+  petrobras: { name: "Petrobras", path: "M20 8l8 6-3 10h-10l-3-10z M20 12v8 M16 16h8" },
+  ipiranga: { name: "Ipiranga", path: "M12 12h16v12h-16z M20 8v4 M16 24v4 M24 24v4" },
+  ale: { name: "ALE", path: "M20 8l10 16h-20z M20 14l4 8h-8z" },
+  flag: { name: "Bandeira", path: "M12 8v20 M12 8h12l-4 6 4 6h-12" },
+  pin: { name: "Pin", path: "M20 6c-5 0-9 4-9 9 0 7 9 15 9 15s9-8 9-15c0-5-4-9-9-9z M20 12a3 3 0 110 6 3 3 0 010-6z" },
+  gas: { name: "Bomba", path: "M12 10h10v14h-10z M22 12h4v8h-4z M14 24h6v4h-6z M17 6v4" },
+  drop: { name: "Gota", path: "M20 6c-6 10-10 14-10 18a10 10 0 0020 0c0-4-4-8-10-18z" },
 };
 
+// Cores claras/pastel para melhor visibilidade
 const STATION_COLORS = {
-  orange: { name: "Laranja", hex: "#F97316" },
-  blue: { name: "Azul", hex: "#3B82F6" },
-  green: { name: "Verde", hex: "#10B981" },
-  red: { name: "Vermelho", hex: "#EF4444" },
-  purple: { name: "Roxo", hex: "#8B5CF6" },
-  yellow: { name: "Amarelo", hex: "#EAB308" },
-  pink: { name: "Rosa", hex: "#EC4899" },
-  cyan: { name: "Ciano", hex: "#06B6D4" },
+  orange: { name: "Laranja", hex: "#FDBA74" },
+  blue: { name: "Azul", hex: "#93C5FD" },
+  green: { name: "Verde", hex: "#6EE7B7" },
+  red: { name: "Vermelho", hex: "#FCA5A5" },
+  purple: { name: "Roxo", hex: "#C4B5FD" },
+  yellow: { name: "Amarelo", hex: "#FDE047" },
+  pink: { name: "Rosa", hex: "#F9A8D4" },
+  cyan: { name: "Ciano", hex: "#67E8F9" },
+  lime: { name: "Lima", hex: "#BEF264" },
+  amber: { name: "Âmbar", hex: "#FCD34D" },
+  white: { name: "Branco", hex: "#F8FAFC" },
+  teal: { name: "Turquesa", hex: "#5EEAD4" },
 };
 
 // Custom marker icons using SVG data URLs
