@@ -143,11 +143,14 @@ export default function ControlPanel({
   setFuelInputMode,
   activeTab,
   setActiveTab,
+  onAddStationToPlan,
 }) {
   const [copied, setCopied] = useState(false);
   const [stationSearchQuery, setStationSearchQuery] = useState("");
   const [editingStopIndex, setEditingStopIndex] = useState(null);
   const [editingLiters, setEditingLiters] = useState(0);
+  const [showAddStationModal, setShowAddStationModal] = useState(false);
+  const [addStationLiters, setAddStationLiters] = useState(100);
   const [percentageInput, setPercentageInput] = useState(
     Math.round((vehicle.current_liters / vehicle.tank_capacity) * 100)
   );
