@@ -904,8 +904,11 @@ async def plan_fuel_stops(request: MultiStopPlanRequest):
         
         # Can we reach destination with 20% reserve?
         if fuel_at_destination >= destination_reserve_liters:
-            logger.info(f"Can reach destination with {fuel_at_destination:.0f}L reserve!")
-            break
+            # Check if there's a really cheap station along the way
+            # Only stop if we've already generated at least one stop or if final fuel is low
+            if iteration > 1 or fuel_at_destination > destination_reserve_liters * 2:
+                logger.info(f"Can reach destination with {fuel_at_destination:.0f}L reserve!")
+                break
         
         # Need to stop - find the BEST station (lowest price) within our range
         # Search from current position to max reach, but leave margin
