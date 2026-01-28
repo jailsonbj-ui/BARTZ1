@@ -353,9 +353,21 @@ export default function ControlPanel({
             <TabsContent value="route" className="space-y-4">
               <Card className="bg-card border-white/5">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-heading uppercase tracking-wide flex items-center gap-2">
-                    <Calculator className="w-4 h-4 text-primary" /> Calculadora de Rota
-                  </CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm font-heading uppercase tracking-wide flex items-center gap-2">
+                      <Calculator className="w-4 h-4 text-primary" /> Calculadora de Rota
+                    </CardTitle>
+                    {(routeData || originCity || destinationCity) && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={onClearPlan}
+                        className="h-7 text-xs text-muted-foreground hover:text-red-400"
+                      >
+                        <Trash2 className="w-3 h-3 mr-1" /> Limpar
+                      </Button>
+                    )}
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div>
