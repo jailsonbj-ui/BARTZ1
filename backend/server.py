@@ -770,6 +770,32 @@ def calculate_station_score(station: dict) -> float:
     
     return (rating_score * 0.4) + (price_score * 0.6)
 
+def find_nearest_route_point(station_lat: float, station_lng: float, 
+                             route_geometry: List[List[float]], total_distance: float) -> float:
+    """Find the distance along the route closest to a station"""
+    if not route_geometry:
+        return 0
+    
+    step = max(1, len(route_geometry) // 100)
+    cumulative = 0
+    prev_point = route_geometry[0]
+    closest_distance = float('inf')
+    closest_route_km = 0
+    
+    for i, point in enumerate(route_geometry):
+        if i > 0:
+            cumulative += calculate_distance(prev_point[0], prev_point[1], point[0], point[1])
+        
+        if i % step == 0 or i == len(route_geometry) - 1:
+            dist_to_station = calculate_distance(point[0], point[1], station_lat, station_lng)
+            if dist_to_station < closest_distance:
+                closest_distance = dist_to_station
+                closest_route_km = cumulative
+        
+        prev_point = point
+    
+    return min(closest_route_km, total_distance)
+
 def find_stations_in_range(stations: List[dict], route_geometry: List[List[float]], 
                            min_distance: float, max_distance: float, 
                            total_distance: float, max_deviation: float = 100) -> List[dict]:
