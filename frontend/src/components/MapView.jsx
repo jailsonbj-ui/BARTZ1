@@ -165,8 +165,8 @@ export default function MapView({
   const [activeInfoWindow, setActiveInfoWindow] = useState(null);
   const [isCreatingStation, setIsCreatingStation] = useState(false);
   const [newStationPosition, setNewStationPosition] = useState(null);
-  const [showTraffic, setShowTraffic] = useState(false);
-  const [mapType, setMapType] = useState("roadmap");
+  const [showTraffic, setShowTraffic] = useState(true);
+  const [mapType, setMapType] = useState("hybrid");
   const [showLayersMenu, setShowLayersMenu] = useState(false);
   const [searchBox, setSearchBox] = useState(null);
   const [searchValue, setSearchValue] = useState("");
