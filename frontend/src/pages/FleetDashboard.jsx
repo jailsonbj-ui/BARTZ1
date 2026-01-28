@@ -131,11 +131,14 @@ export default function FleetDashboard() {
         waypoint_cities: waypointCities.filter(c => c.trim()),
         vehicle,
       });
-      setRouteData(response.data);
+      
+      // Add unique ID to force re-render of route
+      const routeWithId = { ...response.data, id: Date.now() };
+      setRouteData(routeWithId);
       
       // Auto-plan fuel stops for long routes
       if (response.data.total_distance > response.data.autonomy) {
-        await planFuelStops(response.data);
+        await planFuelStops(routeWithId);
       }
       
       toast.success(`Rota: ${response.data.total_distance.toFixed(0)} km`);
