@@ -510,6 +510,7 @@ export default function FleetDashboard() {
         onReanalyze={handleReanalyze}
         planModified={planModified}
         onAddStationToPlan={handleAddStationToPlan}
+        onClearPlan={handleClearPlan}
       />
     </div>
   );
