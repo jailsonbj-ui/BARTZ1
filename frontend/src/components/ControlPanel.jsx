@@ -707,18 +707,78 @@ export default function ControlPanel({
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Litros Atuais</Label>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        data-testid="input-current-liters"
-                        type="number"
-                        value={vehicle.current_liters}
-                        onChange={(e) => setVehicle({ ...vehicle, current_liters: parseFloat(e.target.value) || 0 })}
-                        className="bg-secondary border-white/10 font-mono"
-                      />
-                      <span className="text-muted-foreground text-sm">L</span>
+                  {/* Fuel Input Mode Toggle */}
+                  <div className="flex items-center justify-between bg-secondary/50 rounded-lg p-2">
+                    <span className="text-xs text-muted-foreground">Modo de entrada:</span>
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => setFuelInputMode("liters")}
+                        className={`px-3 py-1 text-xs rounded-md transition-all ${
+                          fuelInputMode === "liters"
+                            ? "bg-primary text-white"
+                            : "bg-secondary hover:bg-secondary/80 text-muted-foreground"
+                        }`}
+                      >
+                        Litros
+                      </button>
+                      <button
+                        onClick={() => {
+                          setFuelInputMode("percentage");
+                          setPercentageInput(Math.round((vehicle.current_liters / vehicle.tank_capacity) * 100));
+                        }}
+                        className={`px-3 py-1 text-xs rounded-md transition-all ${
+                          fuelInputMode === "percentage"
+                            ? "bg-primary text-white"
+                            : "bg-secondary hover:bg-secondary/80 text-muted-foreground"
+                        }`}
+                      >
+                        Porcentagem
+                      </button>
                     </div>
+                  </div>
+
+                  {/* Fuel Input - Liters or Percentage */}
+                  <div>
+                    <Label className="text-xs text-muted-foreground">
+                      {fuelInputMode === "liters" ? "Litros Atuais" : "Nível do Tanque"}
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      {fuelInputMode === "liters" ? (
+                        <>
+                          <Input
+                            data-testid="input-current-liters"
+                            type="number"
+                            value={vehicle.current_liters}
+                            onChange={(e) => setVehicle({ ...vehicle, current_liters: parseFloat(e.target.value) || 0 })}
+                            className="bg-secondary border-white/10 font-mono"
+                          />
+                          <span className="text-muted-foreground text-sm">L</span>
+                        </>
+                      ) : (
+                        <>
+                          <Input
+                            data-testid="input-fuel-percentage"
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={percentageInput}
+                            onChange={(e) => {
+                              const percent = Math.min(100, Math.max(0, parseFloat(e.target.value) || 0));
+                              setPercentageInput(percent);
+                              const liters = (percent / 100) * vehicle.tank_capacity;
+                              setVehicle({ ...vehicle, current_liters: Math.round(liters) });
+                            }}
+                            className="bg-secondary border-white/10 font-mono"
+                          />
+                          <span className="text-muted-foreground text-sm">%</span>
+                        </>
+                      )}
+                    </div>
+                    {fuelInputMode === "percentage" && (
+                      <div className="text-xs text-muted-foreground mt-1">
+                        = {vehicle.current_liters.toFixed(0)} litros
+                      </div>
+                    )}
                   </div>
 
                   <div>
