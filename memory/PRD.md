@@ -1,9 +1,15 @@
-# Bartz - Sistema de Gestão de Abastecimento de Frota v2.6
+# Bartz - Sistema de Gestão de Abastecimento de Frota v2.7
 
 ## Problema Original
 Sistema inteligente de logística para controle de abastecimento de carretas de frota.
 
 ## O Que Foi Implementado
+
+### Versão 2.7 - Correções de Bugs (28/01/2026) ✅
+- **Bug 1 CORRIGIDO**: Ícones e cores dos postos agora são salvos corretamente
+  - Adicionado `marker_icon` e `marker_color` ao modelo `FuelStationUpdate`
+- **Bug 2 CORRIGIDO**: Novas rotas substituem rotas anteriores corretamente
+  - Adicionada key dinâmica ao componente Polyline para forçar recriação
 
 ### Versão 2.6 - Busca e Personalização (24/01/2026) ✅
 - **Marcador de busca no mapa**:
