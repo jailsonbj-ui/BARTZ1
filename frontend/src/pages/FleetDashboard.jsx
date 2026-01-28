@@ -240,6 +240,7 @@ export default function FleetDashboard() {
       ratings: { price_rating: 0, service_rating: 0, parking_rating: 0, security_rating: 0 },
       parking: { has_parking: true, parking_type: "free", min_fuel_liters: null },
     });
+    setActiveTab("stations"); // Switch to stations tab
     setIsPanelOpen(true);
   };
 
