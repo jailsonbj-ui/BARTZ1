@@ -375,6 +375,19 @@ export default function FleetDashboard() {
     }
   };
 
+  const handleClearPlan = () => {
+    setRouteData(null);
+    setFuelPlan(null);
+    setOriginCity("");
+    setDestinationCity("");
+    setWaypointCities([]);
+    setAiResponse(null);
+    setServiceOrder(null);
+    setPlanModified(false);
+    setActiveTab("route");
+    toast.success("Plano limpo! Pronto para novo cálculo.");
+  };
+
   const addWaypoint = () => setWaypointCities([...waypointCities, ""]);
   const removeWaypoint = (index) => setWaypointCities(waypointCities.filter((_, i) => i !== index));
   const updateWaypoint = (index, value) => setWaypointCities(waypointCities.map((wp, i) => (i === index ? value : wp)));
