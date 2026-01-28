@@ -332,7 +332,7 @@ export default function ControlPanel({
     >
       <ScrollArea className="h-full">
         <div className="p-4 space-y-4">
-          <Tabs defaultValue="route" className="w-full">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-3 bg-secondary">
               <TabsTrigger data-testid="tab-route" value="route" className="text-xs">
                 <Navigation className="w-4 h-4 mr-1" /> Rota
