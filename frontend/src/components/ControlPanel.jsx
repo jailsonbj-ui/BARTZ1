@@ -582,6 +582,99 @@ export default function ControlPanel({
                       </div>
                     ))}
 
+                    {/* Add Station to Plan Button */}
+                    <button
+                      onClick={() => setShowAddStationModal(true)}
+                      className="w-full py-2 border border-dashed border-green-500/50 rounded-lg text-green-400 text-sm hover:bg-green-500/10 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Plus className="w-4 h-4" /> Adicionar Posto ao Plano
+                    </button>
+
+                    {/* Add Station Modal */}
+                    {showAddStationModal && (
+                      <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
+                        <div className="bg-card border border-white/10 rounded-xl p-4 w-full max-w-md max-h-[80vh] overflow-hidden shadow-xl">
+                          <div className="flex items-center justify-between mb-4">
+                            <h3 className="font-heading text-lg">Adicionar Posto ao Plano</h3>
+                            <Button variant="ghost" size="icon" onClick={() => setShowAddStationModal(false)}>
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </div>
+                          
+                          {/* Liters input */}
+                          <div className="mb-4">
+                            <Label className="text-xs text-muted-foreground">Quantidade a abastecer</Label>
+                            <div className="flex items-center gap-2">
+                              <Input
+                                type="number"
+                                value={addStationLiters}
+                                onChange={(e) => setAddStationLiters(Number(e.target.value))}
+                                className="bg-secondary border-white/10 font-mono"
+                                min={50}
+                                max={500}
+                              />
+                              <span className="text-muted-foreground text-sm">L</span>
+                            </div>
+                          </div>
+                          
+                          {/* Station search */}
+                          <div className="mb-3">
+                            <Input
+                              placeholder="Buscar posto..."
+                              value={stationSearchQuery}
+                              onChange={(e) => setStationSearchQuery(e.target.value)}
+                              className="bg-secondary border-white/10"
+                            />
+                          </div>
+                          
+                          {/* Station list */}
+                          <div className="max-h-[300px] overflow-y-auto space-y-2">
+                            {stations
+                              .filter(s => s.is_active)
+                              .filter(s => {
+                                if (!stationSearchQuery.trim()) return true;
+                                const q = stationSearchQuery.toLowerCase();
+                                return s.name?.toLowerCase().includes(q) || s.city?.toLowerCase().includes(q);
+                              })
+                              .map(station => {
+                                const alreadyInPlan = fuelPlan?.stops?.some(stop => stop.station.id === station.id);
+                                return (
+                                  <button
+                                    key={station.id}
+                                    disabled={alreadyInPlan}
+                                    onClick={() => {
+                                      if (onAddStationToPlan) {
+                                        onAddStationToPlan(station.id, addStationLiters);
+                                        setShowAddStationModal(false);
+                                        setStationSearchQuery("");
+                                      }
+                                    }}
+                                    className={`w-full text-left p-3 rounded-lg border transition-colors ${
+                                      alreadyInPlan
+                                        ? "border-white/5 bg-secondary/30 opacity-50 cursor-not-allowed"
+                                        : "border-white/10 bg-secondary/50 hover:bg-secondary hover:border-green-500/50"
+                                    }`}
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <div>
+                                        <div className="font-medium text-sm">{station.name}</div>
+                                        <div className="text-xs text-muted-foreground">{station.city}</div>
+                                      </div>
+                                      <div className="text-right">
+                                        <div className="font-mono text-primary text-sm">R$ {station.diesel_price?.toFixed(2)}/L</div>
+                                        {alreadyInPlan && (
+                                          <div className="text-xs text-green-400">Já no plano</div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Gaps Warning */}
                     {fuelPlan.gaps?.length > 0 && (
                       <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 space-y-2">
