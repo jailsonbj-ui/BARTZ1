@@ -815,20 +815,20 @@ export default function ControlPanel({
                       {/* Icon Selection */}
                       <div>
                         <Label className="text-xs text-muted-foreground mb-2 block">Ícone</Label>
-                        <div className="flex flex-wrap gap-2">
+                        <div className="grid grid-cols-7 gap-1.5">
                           {Object.entries(STATION_ICONS).map(([key, icon]) => (
                             <button
                               key={key}
                               type="button"
                               onClick={() => setStationForm({ ...stationForm, marker_icon: key })}
-                              className={`p-2 rounded-lg border transition-all ${
+                              className={`p-1.5 rounded-lg border transition-all ${
                                 stationForm.marker_icon === key 
                                   ? "border-primary bg-primary/20" 
                                   : "border-white/10 bg-secondary/50 hover:bg-secondary"
                               }`}
                               title={icon.name}
                             >
-                              <svg width="20" height="20" viewBox="0 0 40 40" className="text-white">
+                              <svg width="18" height="18" viewBox="0 0 40 40" className="text-white">
                                 <path d={icon.path} fill="currentColor" opacity="0.9"/>
                               </svg>
                             </button>
@@ -839,15 +839,15 @@ export default function ControlPanel({
                       {/* Color Selection */}
                       <div>
                         <Label className="text-xs text-muted-foreground mb-2 block">Cor</Label>
-                        <div className="flex flex-wrap gap-2">
+                        <div className="grid grid-cols-6 gap-1.5">
                           {Object.entries(STATION_COLORS).map(([key, color]) => (
                             <button
                               key={key}
                               type="button"
                               onClick={() => setStationForm({ ...stationForm, marker_color: key })}
-                              className={`w-7 h-7 rounded-full border-2 transition-all ${
+                              className={`w-6 h-6 rounded-full border-2 transition-all ${
                                 stationForm.marker_color === key 
-                                  ? "border-white scale-110" 
+                                  ? "border-white scale-110 ring-2 ring-primary" 
                                   : "border-transparent hover:scale-105"
                               }`}
                               style={{ backgroundColor: color.hex }}
