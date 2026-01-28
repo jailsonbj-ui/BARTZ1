@@ -336,6 +336,7 @@ export default function MapView({
         {/* Route Polyline */}
         {routePath.length > 1 && (
           <Polyline
+            key={`route-${routeData?.total_distance}-${routePath.length}`}
             path={routePath}
             options={{
               strokeColor: "#F97316",
