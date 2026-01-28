@@ -1028,6 +1028,56 @@ async def plan_fuel_stops(request: MultiStopPlanRequest):
         
         logger.info(f"Added stop at {best_station.get('name')} ({stop_distance:.0f}km), +{fuel_to_add:.0f}L @ R${best_station.get('diesel_price')}/L")
     
+    # ======= CONSOLIDATE NEARBY STOPS (200km rule) =======
+    # If two stops are within 200km, keep only the cheaper one and fill more there
+    CONSOLIDATION_DISTANCE = 200  # km
+    
+    if len(fuel_stops) >= 2:
+        consolidated_stops = []
+        i = 0
+        while i < len(fuel_stops):
+            current_stop = fuel_stops[i]
+            
+            # Check if there's another stop within 200km
+            if i + 1 < len(fuel_stops):
+                next_stop = fuel_stops[i + 1]
+                distance_between = next_stop['distance_from_start'] - current_stop['distance_from_start']
+                
+                if distance_between <= CONSOLIDATION_DISTANCE:
+                    # Choose the cheaper station and consolidate fuel
+                    total_fuel_both = current_stop['fuel_to_add'] + next_stop['fuel_to_add']
+                    
+                    current_price = current_stop['station']['diesel_price']
+                    next_price = next_stop['station']['diesel_price']
+                    
+                    if current_price <= next_price:
+                        # Keep current stop, fill more
+                        winner = dict(current_stop)
+                        winner['fuel_to_add'] = min(total_fuel_both, vehicle.tank_capacity - 50)  # Leave some margin
+                        winner['cost'] = winner['fuel_to_add'] * winner['station']['diesel_price']
+                        winner['reason'] = f"Completar tanque - melhor preço ({distance_between:.0f}km mais barato que {next_stop['station']['name']})"
+                        consolidated_stops.append(winner)
+                        logger.info(f"Consolidated: keeping {current_stop['station']['name']} (R${current_price:.2f}) over {next_stop['station']['name']} (R${next_price:.2f})")
+                    else:
+                        # Keep next stop, fill more there
+                        winner = dict(next_stop)
+                        winner['fuel_to_add'] = min(total_fuel_both, vehicle.tank_capacity - 50)
+                        winner['cost'] = winner['fuel_to_add'] * winner['station']['diesel_price']
+                        winner['reason'] = f"Completar tanque - melhor preço ({distance_between:.0f}km mais barato que {current_stop['station']['name']})"
+                        consolidated_stops.append(winner)
+                        logger.info(f"Consolidated: keeping {next_stop['station']['name']} (R${next_price:.2f}) over {current_stop['station']['name']} (R${current_price:.2f})")
+                    
+                    i += 2  # Skip both stops
+                    continue
+            
+            # No consolidation needed
+            consolidated_stops.append(current_stop)
+            i += 1
+        
+        if len(consolidated_stops) < len(fuel_stops):
+            logger.info(f"Consolidation reduced stops from {len(fuel_stops)} to {len(consolidated_stops)}")
+            fuel_stops = consolidated_stops
+    
     # Calculate final fuel at destination
     final_distance = route_distance - current_distance
     final_fuel = current_fuel - (final_distance / vehicle.consumption_rate)
