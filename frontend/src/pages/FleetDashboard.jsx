@@ -347,6 +347,34 @@ export default function FleetDashboard() {
     }
   };
 
+  const handleAddStationToPlan = async (stationId, fuelToAdd) => {
+    if (!fuelPlan || !routeData) {
+      toast.error("Calcule uma rota primeiro!");
+      return;
+    }
+    
+    setIsLoading(true);
+    try {
+      const response = await axios.post(`${API}/add-station-to-plan`, {
+        station_id: stationId,
+        fuel_to_add: fuelToAdd,
+        current_plan: fuelPlan,
+        route_distance: routeData.total_distance,
+        route_geometry: routeData.route_geometry,
+        tank_capacity: vehicle.tank_capacity
+      });
+      
+      setFuelPlan(response.data);
+      setPlanModified(true);
+      toast.success("Posto adicionado ao plano!");
+    } catch (error) {
+      console.error("Error adding station to plan:", error);
+      toast.error("Erro ao adicionar posto");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const addWaypoint = () => setWaypointCities([...waypointCities, ""]);
   const removeWaypoint = (index) => setWaypointCities(waypointCities.filter((_, i) => i !== index));
   const updateWaypoint = (index, value) => setWaypointCities(waypointCities.map((wp, i) => (i === index ? value : wp)));
