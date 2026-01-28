@@ -139,11 +139,16 @@ export default function ControlPanel({
   onToggleComplete,
   onReanalyze,
   planModified,
+  fuelInputMode,
+  setFuelInputMode,
 }) {
   const [copied, setCopied] = useState(false);
   const [stationSearchQuery, setStationSearchQuery] = useState("");
   const [editingStopIndex, setEditingStopIndex] = useState(null);
   const [editingLiters, setEditingLiters] = useState(0);
+  const [percentageInput, setPercentageInput] = useState(
+    Math.round((vehicle.current_liters / vehicle.tank_capacity) * 100)
+  );
   const [stationForm, setStationForm] = useState({
     name: "",
     diesel_price: 5.5,
