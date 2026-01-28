@@ -144,6 +144,7 @@ export default function ControlPanel({
   activeTab,
   setActiveTab,
   onAddStationToPlan,
+  onClearPlan,
 }) {
   const [copied, setCopied] = useState(false);
   const [stationSearchQuery, setStationSearchQuery] = useState("");
