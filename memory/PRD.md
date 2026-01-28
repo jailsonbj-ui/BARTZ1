@@ -1,9 +1,18 @@
-# Bartz - Sistema de Gestão de Abastecimento de Frota v3.0
+# Bartz - Sistema de Gestão de Abastecimento de Frota v3.1
 
 ## Problema Original
 Sistema inteligente de logística para controle de abastecimento de carretas de frota.
 
 ## O Que Foi Implementado
+
+### Versão 3.1 - Otimização do Plano de Abastecimento (28/01/2026) ✅
+- **Adicionar posto manualmente ao plano**:
+  - Botão "+ Adicionar Posto ao Plano" no painel de abastecimento
+  - Modal para selecionar posto e quantidade de litros
+  - Postos já incluídos no plano são marcados como "Já no plano"
+- **Regra de consolidação de paradas (200km)**:
+  - Se dois postos estão a menos de 200km, mantém apenas o mais barato
+  - Consolida o combustível em uma única parada para reduzir tempo
 
 ### Versão 3.0 - Preenchimento Automático de Postos (28/01/2026) ✅
 - **Auto-preenchimento ao criar posto**:
