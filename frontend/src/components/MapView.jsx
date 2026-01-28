@@ -542,11 +542,28 @@ export default function MapView({
           >
             {activeInfoWindow === "search" && (
               <InfoWindow onCloseClick={() => setActiveInfoWindow(null)}>
-                <div className="p-2">
-                  <div className="font-medium text-sm text-gray-900">{searchMarker.name}</div>
-                  <div className="text-xs text-gray-500 mt-1">
+                <div className="p-2 min-w-[200px]">
+                  <div className="font-medium text-sm text-gray-900">{searchMarker.placeName || searchMarker.name}</div>
+                  {searchMarker.city && (
+                    <div className="text-xs text-gray-600">{searchMarker.city}</div>
+                  )}
+                  <div className="text-xs text-gray-400 mt-1">
                     {searchMarker.lat.toFixed(6)}, {searchMarker.lng.toFixed(6)}
                   </div>
+                  <button
+                    onClick={() => {
+                      onCreateStation({
+                        lat: searchMarker.lat,
+                        lng: searchMarker.lng,
+                        suggestedName: searchMarker.placeName || "",
+                        suggestedCity: searchMarker.city || ""
+                      });
+                      setActiveInfoWindow(null);
+                    }}
+                    className="mt-2 w-full bg-green-600 hover:bg-green-700 text-white text-xs py-1.5 px-3 rounded flex items-center justify-center gap-1"
+                  >
+                    <Plus className="w-3 h-3" /> Criar Posto Aqui
+                  </button>
                 </div>
               </InfoWindow>
             )}
