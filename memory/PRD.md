@@ -1,9 +1,15 @@
-# Bartz - Sistema de Gestão de Abastecimento de Frota v2.8
+# Bartz - Sistema de Gestão de Abastecimento de Frota v2.9
 
 ## Problema Original
 Sistema inteligente de logística para controle de abastecimento de carretas de frota.
 
 ## O Que Foi Implementado
+
+### Versão 2.9 - Configurações do Veículo (28/01/2026) ✅
+- **Capacidade padrão do tanque**: 850L (valor típico para carretas)
+- **Modo de entrada de combustível**: Toggle Litros/Porcentagem
+  - Permite informar o diesel atual em litros ou porcentagem
+  - Mostra conversão automática (ex: 24% = 204 litros)
 
 ### Versão 2.8 - Melhorias Visuais (28/01/2026) ✅
 - **Cores claras/pastel**: 12 cores para melhor visibilidade no mapa
