@@ -64,8 +64,9 @@ export default function FleetDashboard() {
   const [vehicle, setVehicle] = useState({
     current_liters: 200,
     consumption_rate: 2.5,
-    tank_capacity: 500,
+    tank_capacity: 850,
   });
+  const [fuelInputMode, setFuelInputMode] = useState("liters"); // "liters" or "percentage"
   const [originCity, setOriginCity] = useState("");
   const [destinationCity, setDestinationCity] = useState("");
   const [waypointCities, setWaypointCities] = useState([]);
