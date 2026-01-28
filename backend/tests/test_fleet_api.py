@@ -338,5 +338,98 @@ class TestSeedData:
         assert "message" in data or "stations" in data or isinstance(data, list)
 
 
+class TestBugFixes:
+    """Tests for specific bug fixes"""
+    
+    def test_bug1_marker_icon_and_color_persistence(self):
+        """
+        Bug 1: Verify marker_icon and marker_color are saved correctly
+        When editing a station, icon and color should persist after update
+        """
+        # Create a test station with custom icon and color
+        station_data = {
+            "name": "TEST_Bug1_Station",
+            "latitude": -25.0,
+            "longitude": -49.0,
+            "diesel_price": 5.50,
+            "is_active": True,
+            "city": "Test City",
+            "marker_icon": "fuel",
+            "marker_color": "orange"
+        }
+        create_response = requests.post(f"{BASE_URL}/api/stations", json=station_data)
+        assert create_response.status_code == 200
+        created = create_response.json()
+        station_id = created["id"]
+        
+        # Update with new icon and color
+        update_data = {
+            "marker_icon": "star",
+            "marker_color": "blue"
+        }
+        update_response = requests.put(f"{BASE_URL}/api/stations/{station_id}", json=update_data)
+        assert update_response.status_code == 200
+        
+        updated = update_response.json()
+        assert updated["marker_icon"] == "star", "marker_icon should be 'star' after update"
+        assert updated["marker_color"] == "blue", "marker_color should be 'blue' after update"
+        
+        # Verify persistence by fetching the station again
+        get_response = requests.get(f"{BASE_URL}/api/stations")
+        assert get_response.status_code == 200
+        stations = get_response.json()
+        
+        station = next((s for s in stations if s["id"] == station_id), None)
+        assert station is not None, "Station should exist"
+        assert station["marker_icon"] == "star", "marker_icon should persist as 'star'"
+        assert station["marker_color"] == "blue", "marker_color should persist as 'blue'"
+        
+        # Cleanup
+        requests.delete(f"{BASE_URL}/api/stations/{station_id}")
+    
+    def test_station_update_preserves_other_fields(self):
+        """
+        Verify that updating marker_icon/color doesn't affect other fields
+        """
+        # Create station
+        station_data = {
+            "name": "TEST_Preserve_Fields",
+            "latitude": -26.0,
+            "longitude": -50.0,
+            "diesel_price": 6.00,
+            "is_active": True,
+            "city": "Preserve City",
+            "ratings": {
+                "price_rating": 5,
+                "service_rating": 4,
+                "parking_rating": 3,
+                "security_rating": 2
+            }
+        }
+        create_response = requests.post(f"{BASE_URL}/api/stations", json=station_data)
+        assert create_response.status_code == 200
+        created = create_response.json()
+        station_id = created["id"]
+        
+        # Update only icon and color
+        update_data = {
+            "marker_icon": "diamond",
+            "marker_color": "green"
+        }
+        update_response = requests.put(f"{BASE_URL}/api/stations/{station_id}", json=update_data)
+        assert update_response.status_code == 200
+        
+        updated = update_response.json()
+        
+        # Verify other fields are preserved
+        assert updated["name"] == "TEST_Preserve_Fields"
+        assert updated["diesel_price"] == 6.00
+        assert updated["city"] == "Preserve City"
+        assert updated["ratings"]["price_rating"] == 5
+        
+        # Cleanup
+        requests.delete(f"{BASE_URL}/api/stations/{station_id}")
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "--tb=short"])
