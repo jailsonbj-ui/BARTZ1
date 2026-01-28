@@ -855,41 +855,85 @@ export default function ControlPanel({
                     <Label className="text-xs text-muted-foreground">
                       {fuelInputMode === "liters" ? "Litros Atuais" : "Nível do Tanque"}
                     </Label>
-                    <div className="flex items-center gap-2">
-                      {fuelInputMode === "liters" ? (
-                        <>
-                          <Input
-                            data-testid="input-current-liters"
-                            type="number"
-                            value={vehicle.current_liters}
-                            onChange={(e) => setVehicle({ ...vehicle, current_liters: parseFloat(e.target.value) || 0 })}
-                            className="bg-secondary border-white/10 font-mono"
-                          />
-                          <span className="text-muted-foreground text-sm">L</span>
-                        </>
-                      ) : (
-                        <>
-                          <Input
-                            data-testid="input-fuel-percentage"
-                            type="number"
+                    {fuelInputMode === "liters" ? (
+                      <div className="flex items-center gap-2">
+                        <Input
+                          data-testid="input-current-liters"
+                          type="number"
+                          value={vehicle.current_liters}
+                          onChange={(e) => setVehicle({ ...vehicle, current_liters: parseFloat(e.target.value) || 0 })}
+                          className="bg-secondary border-white/10 font-mono"
+                        />
+                        <span className="text-muted-foreground text-sm">L</span>
+                      </div>
+                    ) : (
+                      <div className="space-y-3 mt-2">
+                        {/* Visual Tank Slider */}
+                        <div className="relative">
+                          {/* Tank background */}
+                          <div className="h-12 bg-secondary/50 rounded-lg border border-white/10 overflow-hidden relative">
+                            {/* Fuel level */}
+                            <div 
+                              className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-primary to-primary/70 transition-all duration-300"
+                              style={{ height: `${percentageInput}%` }}
+                            />
+                            {/* Grid lines */}
+                            <div className="absolute inset-0 flex justify-between px-2">
+                              {[0, 25, 50, 75, 100].map(mark => (
+                                <div key={mark} className="h-full border-l border-white/10" />
+                              ))}
+                            </div>
+                            {/* Percentage display */}
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <span className="text-2xl font-bold font-mono text-white drop-shadow-lg">
+                                {percentageInput}%
+                              </span>
+                            </div>
+                          </div>
+                          
+                          {/* Slider input */}
+                          <input
+                            type="range"
                             min="0"
                             max="100"
+                            step="5"
                             value={percentageInput}
                             onChange={(e) => {
-                              const percent = Math.min(100, Math.max(0, parseFloat(e.target.value) || 0));
+                              const percent = parseInt(e.target.value);
                               setPercentageInput(percent);
                               const liters = (percent / 100) * vehicle.tank_capacity;
                               setVehicle({ ...vehicle, current_liters: Math.round(liters) });
                             }}
-                            className="bg-secondary border-white/10 font-mono"
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                           />
-                          <span className="text-muted-foreground text-sm">%</span>
-                        </>
-                      )}
-                    </div>
-                    {fuelInputMode === "percentage" && (
-                      <div className="text-xs text-muted-foreground mt-1">
-                        = {vehicle.current_liters.toFixed(0)} litros
+                        </div>
+                        
+                        {/* Quick select buttons */}
+                        <div className="flex gap-1">
+                          {[0, 25, 50, 75, 100].map(percent => (
+                            <button
+                              key={percent}
+                              onClick={() => {
+                                setPercentageInput(percent);
+                                const liters = (percent / 100) * vehicle.tank_capacity;
+                                setVehicle({ ...vehicle, current_liters: Math.round(liters) });
+                              }}
+                              className={`flex-1 py-1.5 text-xs rounded transition-all ${
+                                percentageInput === percent
+                                  ? "bg-primary text-white"
+                                  : "bg-secondary/50 text-muted-foreground hover:bg-secondary"
+                              }`}
+                            >
+                              {percent}%
+                            </button>
+                          ))}
+                        </div>
+                        
+                        {/* Liters equivalent */}
+                        <div className="flex items-center justify-between text-xs bg-secondary/30 rounded px-3 py-2">
+                          <span className="text-muted-foreground">Equivale a:</span>
+                          <span className="font-mono font-bold text-primary">{vehicle.current_liters.toFixed(0)} litros</span>
+                        </div>
                       </div>
                     )}
                   </div>
