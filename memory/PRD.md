@@ -1,9 +1,18 @@
-# Bartz - Sistema de Gestão de Abastecimento de Frota v2.7
+# Bartz - Sistema de Gestão de Abastecimento de Frota v2.8
 
 ## Problema Original
 Sistema inteligente de logística para controle de abastecimento de carretas de frota.
 
 ## O Que Foi Implementado
+
+### Versão 2.8 - Melhorias Visuais (28/01/2026) ✅
+- **Cores claras/pastel**: 12 cores para melhor visibilidade no mapa
+  - Laranja, Azul, Verde, Vermelho, Roxo, Amarelo
+  - Rosa, Ciano, Lima, Âmbar, Branco, Turquesa
+- **Mais ícones para postos**: 14 opções
+  - Combustível, Estrela, Círculo, Quadrado, Losango, Caminhão
+  - Shell, Petrobras, Ipiranga, ALE, Bandeira, Pin, Bomba, Gota
+- **Mapa inicia com camada híbrida + trânsito ativado**
 
 ### Versão 2.7 - Correções de Bugs (28/01/2026) ✅
 - **Bug 1 CORRIGIDO**: Ícones e cores dos postos agora são salvos corretamente
