@@ -436,6 +436,8 @@ export default function FleetDashboard() {
         stations={stations}
         selectedStation={selectedStation}
         setSelectedStation={setSelectedStation}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
         vehicle={vehicle}
         setVehicle={setVehicle}
         fuelInputMode={fuelInputMode}
