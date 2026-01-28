@@ -58,6 +58,7 @@ export default function FleetDashboard() {
   const [stations, setStations] = useState([]);
   const [selectedStation, setSelectedStation] = useState(null);
   const [isPanelOpen, setIsPanelOpen] = useState(true);
+  const [activeTab, setActiveTab] = useState("route");
   const [routeData, setRouteData] = useState(null);
   const [mapStyle, setMapStyle] = useState("dark");
   const [theme, setTheme] = useState("dark");
