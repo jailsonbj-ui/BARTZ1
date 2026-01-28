@@ -63,6 +63,8 @@ class FuelStation(BaseModel):
     city: Optional[str] = None
     ratings: StationRatings = Field(default_factory=StationRatings)
     parking: ParkingInfo = Field(default_factory=ParkingInfo)
+    marker_icon: str = "fuel"
+    marker_color: str = "orange"
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class FuelStationCreate(BaseModel):
