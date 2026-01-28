@@ -388,9 +388,9 @@ export default function MapView({
         {showTraffic && <TrafficLayer />}
 
         {/* Route Polyline */}
-        {routePath.length > 1 && (
+        {routeData && routePath.length > 1 && (
           <Polyline
-            key={`route-${routeData?.total_distance}-${routePath.length}`}
+            key={`route-${routeData.id || Date.now()}-${routeData.total_distance}`}
             path={routePath}
             options={{
               strokeColor: "#F97316",
