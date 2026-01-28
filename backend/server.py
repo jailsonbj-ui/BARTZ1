@@ -1140,6 +1140,72 @@ Dê sua avaliação em 2-3 frases: o plano está otimizado? Alguma sugestão?"""
     }
 
 
+# ========== ADD STATION TO PLAN ==========
+
+class AddStationToPlanRequest(BaseModel):
+    station_id: str
+    fuel_to_add: float
+    current_plan: dict
+    route_distance: float
+    route_geometry: list
+    tank_capacity: float
+
+@api_router.post("/add-station-to-plan")
+async def add_station_to_plan(request: AddStationToPlanRequest):
+    """Add a station manually to an existing fuel plan"""
+    
+    # Get station details
+    station = await db.fuel_stations.find_one({"id": request.station_id}, {"_id": 0})
+    if not station:
+        raise HTTPException(status_code=404, detail="Posto não encontrado")
+    
+    # Calculate distance from route start
+    station_distance = find_nearest_route_point(
+        station['latitude'], station['longitude'],
+        request.route_geometry, request.route_distance
+    )
+    
+    # Create new stop
+    new_stop = {
+        "station": {
+            "id": station['id'],
+            "name": station['name'],
+            "city": station.get('city', ''),
+            "diesel_price": station['diesel_price'],
+            "latitude": station['latitude'],
+            "longitude": station['longitude']
+        },
+        "distance_from_start": round(station_distance, 0),
+        "fuel_to_add": request.fuel_to_add,
+        "cost": round(request.fuel_to_add * station['diesel_price'], 2),
+        "reason": "Adicionado manualmente"
+    }
+    
+    # Get existing stops and add new one
+    stops = request.current_plan.get('stops', [])
+    stops.append(new_stop)
+    
+    # Sort stops by distance
+    stops.sort(key=lambda s: s['distance_from_start'])
+    
+    # Recalculate totals
+    total_fuel = sum(s['fuel_to_add'] for s in stops)
+    total_cost = sum(s['cost'] for s in stops)
+    avg_price = total_cost / total_fuel if total_fuel > 0 else 0
+    
+    return {
+        "stops": stops,
+        "total_stops": len(stops),
+        "total_fuel_liters": round(total_fuel, 1),
+        "total_cost": round(total_cost, 2),
+        "avg_price_per_liter": round(avg_price, 2),
+        "final_fuel_liters": request.current_plan.get('final_fuel_liters', 0),
+        "final_fuel_percent": request.current_plan.get('final_fuel_percent', 0),
+        "gaps": request.current_plan.get('gaps', []),
+        "has_gaps": request.current_plan.get('has_gaps', False),
+        "ai_summary": None  # Will need re-analysis
+    }
+
 
 # ========== AI ROUTE ADVISOR ==========
 
