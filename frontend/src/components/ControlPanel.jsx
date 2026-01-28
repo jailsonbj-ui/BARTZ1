@@ -141,6 +141,8 @@ export default function ControlPanel({
   planModified,
   fuelInputMode,
   setFuelInputMode,
+  activeTab,
+  setActiveTab,
 }) {
   const [copied, setCopied] = useState(false);
   const [stationSearchQuery, setStationSearchQuery] = useState("");
