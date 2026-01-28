@@ -241,17 +241,32 @@ export default function ControlPanel({
   };
 
   useEffect(() => {
-    if (selectedStation && !selectedStation.isNew) {
-      setStationForm({
-        name: selectedStation.name || "",
-        diesel_price: selectedStation.diesel_price || 5.5,
-        is_active: selectedStation.is_active ?? true,
-        city: selectedStation.city || "",
-        ratings: selectedStation.ratings || { price_rating: 0, service_rating: 0, parking_rating: 0, security_rating: 0 },
-        parking: selectedStation.parking || { has_parking: true, parking_type: "free", min_fuel_liters: null },
-        marker_icon: selectedStation.marker_icon || "fuel",
-        marker_color: selectedStation.marker_color || "orange",
-      });
+    if (selectedStation) {
+      if (selectedStation.isNew) {
+        // New station - use suggested values if available
+        setStationForm({
+          name: selectedStation.name || "",
+          diesel_price: 5.5,
+          is_active: true,
+          city: selectedStation.city || "",
+          ratings: { price_rating: 0, service_rating: 0, parking_rating: 0, security_rating: 0 },
+          parking: { has_parking: true, parking_type: "free", min_fuel_liters: null },
+          marker_icon: "fuel",
+          marker_color: "orange",
+        });
+      } else {
+        // Existing station - load all values
+        setStationForm({
+          name: selectedStation.name || "",
+          diesel_price: selectedStation.diesel_price || 5.5,
+          is_active: selectedStation.is_active ?? true,
+          city: selectedStation.city || "",
+          ratings: selectedStation.ratings || { price_rating: 0, service_rating: 0, parking_rating: 0, security_rating: 0 },
+          parking: selectedStation.parking || { has_parking: true, parking_type: "free", min_fuel_liters: null },
+          marker_icon: selectedStation.marker_icon || "fuel",
+          marker_color: selectedStation.marker_color || "orange",
+        });
+      }
     }
   }, [selectedStation]);
 
