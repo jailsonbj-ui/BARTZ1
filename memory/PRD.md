@@ -1,9 +1,16 @@
-# Bartz - Sistema de Gestão de Abastecimento de Frota v3.1
+# Bartz - Sistema de Gestão de Abastecimento de Frota v3.2
 
 ## Problema Original
 Sistema inteligente de logística para controle de abastecimento de carretas de frota.
 
 ## O Que Foi Implementado
+
+### Versão 3.2 - Slider Visual do Tanque (28/01/2026) ✅
+- **Slider visual para porcentagem do tanque**:
+  - Barra de nível animada mostrando o combustível atual
+  - Botões de seleção rápida: 0%, 25%, 50%, 75%, 100%
+  - Arrastar para ajustar o nível (incrementos de 5%)
+  - Exibe equivalente em litros automaticamente
 
 ### Versão 3.1 - Otimização do Plano de Abastecimento (28/01/2026) ✅
 - **Adicionar posto manualmente ao plano**:
