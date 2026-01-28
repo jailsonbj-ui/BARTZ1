@@ -1,9 +1,16 @@
-# Bartz - Sistema de Gestão de Abastecimento de Frota v2.9
+# Bartz - Sistema de Gestão de Abastecimento de Frota v3.0
 
 ## Problema Original
 Sistema inteligente de logística para controle de abastecimento de carretas de frota.
 
 ## O Que Foi Implementado
+
+### Versão 3.0 - Preenchimento Automático de Postos (28/01/2026) ✅
+- **Auto-preenchimento ao criar posto**:
+  - Ao pesquisar um local no mapa e criar um posto, o nome e cidade são preenchidos automaticamente
+  - Ex: Buscar "Posto Shell Curitiba" → Nome: "Posto Shell", Cidade: "Curitiba-PR"
+- **Botão "Criar Posto Aqui"** no InfoWindow do marcador de busca
+- **Aba "Postos" abre automaticamente** ao criar novo posto
 
 ### Versão 2.9 - Configurações do Veículo (28/01/2026) ✅
 - **Capacidade padrão do tanque**: 850L (valor típico para carretas)
