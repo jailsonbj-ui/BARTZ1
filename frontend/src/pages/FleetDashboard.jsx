@@ -136,8 +136,14 @@ export default function FleetDashboard() {
       const routeWithId = { ...response.data, id: Date.now() };
       setRouteData(routeWithId);
       
-      // Auto-plan fuel stops for long routes
-      if (response.data.total_distance > response.data.autonomy) {
+      // Auto-plan fuel stops when:
+      // 1. Distance > autonomy (won't make it), OR
+      // 2. Final fuel would be less than 30% of tank (risky)
+      const fuelNeeded = response.data.total_distance / vehicle.consumption_rate;
+      const finalFuel = vehicle.current_liters - fuelNeeded;
+      const finalFuelPercent = (finalFuel / vehicle.tank_capacity) * 100;
+      
+      if (response.data.total_distance > response.data.autonomy || finalFuelPercent < 30) {
         await planFuelStops(routeWithId);
       }
       
