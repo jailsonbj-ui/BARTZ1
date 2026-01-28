@@ -289,29 +289,37 @@ export default function MapView({
 
   const handleMapClick = useCallback((e) => {
     if (isCreatingStation && e.latLng) {
-      setNewStationPosition({ lat: e.latLng.lat(), lng: e.latLng.lng() });
+      // If there's a search marker, use its position
+      if (searchMarker) {
+        setNewStationPosition({ 
+          lat: searchMarker.lat, 
+          lng: searchMarker.lng,
+          fromSearch: true
+        });
+      } else {
+        setNewStationPosition({ lat: e.latLng.lat(), lng: e.latLng.lng() });
+      }
     }
     setActiveInfoWindow(null);
-  }, [isCreatingStation]);
+  }, [isCreatingStation, searchMarker]);
 
   const handleConfirmNewStation = () => {
     if (newStationPosition && onCreateStation) {
-      // Pass search marker info if available and close to the new station position
+      // Pass search marker info if the position came from search or is close to it
       const positionData = { ...newStationPosition };
-      if (searchMarker) {
-        const distance = Math.sqrt(
-          Math.pow(searchMarker.lat - newStationPosition.lat, 2) +
-          Math.pow(searchMarker.lng - newStationPosition.lng, 2)
-        );
-        // If within ~500m, use the search marker info
-        if (distance < 0.005) {
-          positionData.suggestedName = searchMarker.placeName || "";
-          positionData.suggestedCity = searchMarker.city || "";
-        }
+      if (searchMarker && (newStationPosition.fromSearch || 
+          Math.sqrt(
+            Math.pow(searchMarker.lat - newStationPosition.lat, 2) +
+            Math.pow(searchMarker.lng - newStationPosition.lng, 2)
+          ) < 0.02)) {
+        positionData.suggestedName = searchMarker.placeName || "";
+        positionData.suggestedCity = searchMarker.city || "";
       }
+      delete positionData.fromSearch;
       onCreateStation(positionData);
       setIsCreatingStation(false);
       setNewStationPosition(null);
+      clearSearch();
     }
   };
 
