@@ -517,7 +517,12 @@ export default function ControlPanel({
                             </div>
                             <div className="min-w-0">
                               <div className="font-medium text-sm truncate">{stop.station.name}</div>
-                              <div className="text-xs text-muted-foreground">{stop.station.city} • {stop.distance_from_start}km</div>
+                              <div className="text-xs text-muted-foreground">
+                                {stop.station.city} • {stop.distance_from_start}km
+                              </div>
+                              <div className="text-xs font-mono text-primary font-semibold">
+                                R$ {stop.station.diesel_price?.toFixed(2)}/L
+                              </div>
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
