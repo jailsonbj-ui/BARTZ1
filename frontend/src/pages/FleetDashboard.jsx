@@ -435,6 +435,8 @@ export default function FleetDashboard() {
         setSelectedStation={setSelectedStation}
         vehicle={vehicle}
         setVehicle={setVehicle}
+        fuelInputMode={fuelInputMode}
+        setFuelInputMode={setFuelInputMode}
         originCity={originCity}
         setOriginCity={setOriginCity}
         destinationCity={destinationCity}
