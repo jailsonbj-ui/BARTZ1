@@ -296,7 +296,20 @@ export default function MapView({
 
   const handleConfirmNewStation = () => {
     if (newStationPosition && onCreateStation) {
-      onCreateStation(newStationPosition);
+      // Pass search marker info if available and close to the new station position
+      const positionData = { ...newStationPosition };
+      if (searchMarker) {
+        const distance = Math.sqrt(
+          Math.pow(searchMarker.lat - newStationPosition.lat, 2) +
+          Math.pow(searchMarker.lng - newStationPosition.lng, 2)
+        );
+        // If within ~500m, use the search marker info
+        if (distance < 0.005) {
+          positionData.suggestedName = searchMarker.placeName || "";
+          positionData.suggestedCity = searchMarker.city || "";
+        }
+      }
+      onCreateStation(positionData);
       setIsCreatingStation(false);
       setNewStationPosition(null);
     }
