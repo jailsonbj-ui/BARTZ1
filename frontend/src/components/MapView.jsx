@@ -560,16 +560,16 @@ export default function MapView({
                         Parada #{stopNumber} do plano
                       </div>
                     )}
-                    {/* Copy Location Button */}
+                    {/* Copy Google Maps Link Button */}
                     <button
                       onClick={() => {
-                        const coords = `${station.latitude},${station.longitude}`;
-                        navigator.clipboard.writeText(coords);
-                        alert(`Localização copiada!\n${coords}`);
+                        const mapsLink = `https://www.google.com/maps/search/?api=1&query=${station.latitude},${station.longitude}`;
+                        navigator.clipboard.writeText(mapsLink);
+                        alert(`Link do Google Maps copiado!\n\nAbra no celular para navegar até o posto.`);
                       }}
                       className="mt-2 w-full flex items-center justify-center gap-1 bg-blue-500 hover:bg-blue-600 text-white text-xs py-1.5 px-2 rounded transition-colors"
                     >
-                      <Copy size={12} /> Copiar Localização
+                      <Copy size={12} /> Copiar Link Maps
                     </button>
                   </div>
                 </InfoWindow>
