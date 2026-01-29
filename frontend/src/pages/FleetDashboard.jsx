@@ -425,6 +425,7 @@ export default function FleetDashboard() {
 
   const handleClearPlan = () => {
     setRouteData(null);
+    setDirectionsResponse(null);
     setFuelPlan(null);
     setOriginCity("");
     setDestinationCity("");
@@ -435,6 +436,54 @@ export default function FleetDashboard() {
     setActiveTab("route");
     toast.success("Plano limpo! Pronto para novo cálculo.");
   };
+
+  const handleRouteChanged = useCallback(async (newDirections) => {
+    if (!newDirections || !newDirections.routes || !newDirections.routes[0]) return;
+    
+    const route = newDirections.routes[0];
+    const leg = route.legs[0];
+    
+    // Extract new waypoints from the dragged route
+    const newWaypoints = [];
+    if (route.legs.length > 1) {
+      for (let i = 0; i < route.legs.length - 1; i++) {
+        newWaypoints.push(route.legs[i].end_address);
+      }
+    }
+    
+    // Get via_waypoints (intermediate points added by dragging)
+    route.legs.forEach(leg => {
+      if (leg.via_waypoints && leg.via_waypoints.length > 0) {
+        leg.via_waypoints.forEach(wp => {
+          newWaypoints.push(`${wp.lat()},${wp.lng()}`);
+        });
+      }
+    });
+    
+    // Calculate total distance
+    let totalDistance = 0;
+    route.legs.forEach(leg => {
+      totalDistance += leg.distance.value;
+    });
+    totalDistance = totalDistance / 1000; // Convert to km
+    
+    // Update the directions response
+    setDirectionsResponse(newDirections);
+    
+    // Update route data with new distance
+    if (routeData) {
+      const newRouteData = {
+        ...routeData,
+        id: Date.now(),
+        total_distance: totalDistance,
+      };
+      setRouteData(newRouteData);
+      
+      // Recalculate fuel plan
+      setPlanModified(true);
+      toast.info(`Rota ajustada: ${totalDistance.toFixed(0)} km. Clique em "Reanalisar" para atualizar o plano.`);
+    }
+  }, [routeData]);
 
   const addWaypoint = () => setWaypointCities([...waypointCities, ""]);
   const removeWaypoint = (index) => setWaypointCities(waypointCities.filter((_, i) => i !== index));
