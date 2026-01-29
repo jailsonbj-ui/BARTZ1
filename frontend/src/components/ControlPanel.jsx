@@ -1410,9 +1410,10 @@ export default function ControlPanel({
                                 title={isActive ? "Desativar posto" : "Ativar posto"}
                               >
                               <div className={`w-2 h-2 rounded-full ${isActive ? "bg-green-400" : "bg-red-400"}`} />
-                            </button>
+                              </button>
+                            </div>
                           </div>
-                        </div>
+                        )}
                       </div>
                     );
                   })}
