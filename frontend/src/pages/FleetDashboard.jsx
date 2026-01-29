@@ -565,6 +565,8 @@ export default function FleetDashboard() {
           onCreateStation={handleCreateStation}
           mapStyle={mapStyle}
           theme={theme}
+          directionsResponse={directionsResponse}
+          onRouteChanged={handleRouteChanged}
         />
       </div>
 
