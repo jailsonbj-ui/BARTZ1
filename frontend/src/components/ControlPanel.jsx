@@ -486,8 +486,8 @@ export default function ControlPanel({
                         <div className="text-xs text-muted-foreground">Paradas</div>
                       </div>
                       <div className="bg-secondary/50 rounded p-2">
-                        <div className="text-lg font-bold text-blue-400">{fuelPlan.total_fuel_liters?.toFixed(0) || 0}L</div>
-                        <div className="text-xs text-muted-foreground">Total</div>
+                        <div className="text-lg font-bold text-blue-400">{routeData ? Math.round(routeData.total_distance / vehicle.consumption_rate) : 0}L</div>
+                        <div className="text-xs text-muted-foreground">Consumo</div>
                       </div>
                       <div className="bg-secondary/50 rounded p-2">
                         <div className="text-lg font-bold text-yellow-400">R${fuelPlan.total_cost?.toFixed(0) || 0}</div>
@@ -497,6 +497,12 @@ export default function ControlPanel({
                         <div className="text-lg font-bold text-cyan-400">{fuelPlan.final_fuel_percent || 0}%</div>
                         <div className="text-xs text-muted-foreground">Chegada</div>
                       </div>
+                    </div>
+
+                    {/* Route consumption info */}
+                    <div className="flex items-center justify-between text-xs bg-secondary/30 rounded px-3 py-2">
+                      <span className="text-muted-foreground">Abastecer na rota:</span>
+                      <span className="font-mono font-bold text-green-400">{fuelPlan.total_fuel_liters?.toFixed(0) || 0}L</span>
                     </div>
 
                     {/* Average Price */}
