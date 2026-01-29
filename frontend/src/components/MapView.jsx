@@ -391,17 +391,44 @@ export default function MapView({
         {/* Traffic Layer */}
         {showTraffic && <TrafficLayer />}
 
-        {/* Route Polyline */}
-        {routeData && routePath.length > 1 && (
-          <Polyline
-            key={`route-${routeData.id || Date.now()}-${routeData.total_distance}`}
-            path={routePath}
+        {/* Route - Use DirectionsRenderer when available for draggable routes */}
+        {directionsResponse ? (
+          <DirectionsRenderer
+            directions={directionsResponse}
             options={{
-              strokeColor: "#F97316",
-              strokeOpacity: 0.9,
-              strokeWeight: 5,
+              draggable: isDraggable,
+              suppressMarkers: true,
+              polylineOptions: {
+                strokeColor: "#F97316",
+                strokeOpacity: 0.9,
+                strokeWeight: 5,
+              },
+            }}
+            onDirectionsChanged={() => {
+              if (directionsRendererRef.current && onRouteChanged) {
+                const result = directionsRendererRef.current.getDirections();
+                if (result) {
+                  onRouteChanged(result);
+                }
+              }
+            }}
+            onLoad={(renderer) => {
+              directionsRendererRef.current = renderer;
             }}
           />
+        ) : (
+          /* Fallback to Polyline when no DirectionsRenderer */
+          routeData && routePath.length > 1 && (
+            <Polyline
+              key={`route-${routeData.id || Date.now()}-${routeData.total_distance}`}
+              path={routePath}
+              options={{
+                strokeColor: "#F97316",
+                strokeOpacity: 0.9,
+                strokeWeight: 5,
+              }}
+            />
+          )
         )}
 
         {/* Route Points (Origin, Destination, Waypoints) */}
