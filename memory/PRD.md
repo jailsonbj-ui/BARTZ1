@@ -1,9 +1,20 @@
-# Bartz - Sistema de Gestão de Abastecimento de Frota v3.2
+# Bartz - Sistema de Gestão de Abastecimento de Frota v3.4
 
 ## Problema Original
 Sistema inteligente de logística para controle de abastecimento de carretas de frota.
 
 ## O Que Foi Implementado
+
+### Versão 3.4 - Arrastar Rota (29/01/2026) ✅
+- **Rota arrastável igual ao Google Maps**:
+  - Calcule uma rota e arraste a linha para criar desvios
+  - Opção "Arrastar Rota" no menu Camadas
+  - Distância recalculada automaticamente ao arrastar
+  - Mensagem para reanalisar o plano após ajuste
+
+### Versão 3.3 - Copiar Localização (28/01/2026) ✅
+- **Botão "Copiar Localização"** no balão de cada posto
+- Copia coordenadas no formato `latitude,longitude`
 
 ### Versão 3.2 - Slider Visual do Tanque (28/01/2026) ✅
 - **Slider visual para porcentagem do tanque**:
