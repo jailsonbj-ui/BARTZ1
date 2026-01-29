@@ -155,6 +155,8 @@ export default function ControlPanel({
   const [percentageInput, setPercentageInput] = useState(
     Math.round((vehicle.current_liters / vehicle.tank_capacity) * 100)
   );
+  const [stationSortOrder, setStationSortOrder] = useState("name"); // "name", "price", "city"
+  const [editingStationId, setEditingStationId] = useState(null);
   const [stationForm, setStationForm] = useState({
     name: "",
     diesel_price: 5.5,
@@ -169,15 +171,25 @@ export default function ControlPanel({
   const autonomy = vehicle.current_liters * vehicle.consumption_rate;
   const autonomyPercent = Math.min((autonomy / (routeData?.total_distance || 1000)) * 100, 100);
 
-  // Filter stations by search query
-  const filteredStations = stations.filter(station => {
-    if (!stationSearchQuery.trim()) return true;
-    const query = stationSearchQuery.toLowerCase();
-    return (
-      station.name?.toLowerCase().includes(query) ||
-      station.city?.toLowerCase().includes(query)
-    );
-  });
+  // Filter and sort stations
+  const filteredStations = stations
+    .filter(station => {
+      if (!stationSearchQuery.trim()) return true;
+      const query = stationSearchQuery.toLowerCase();
+      return (
+        station.name?.toLowerCase().includes(query) ||
+        station.city?.toLowerCase().includes(query)
+      );
+    })
+    .sort((a, b) => {
+      if (stationSortOrder === "price") {
+        return (a.diesel_price || 0) - (b.diesel_price || 0);
+      }
+      if (stationSortOrder === "city") {
+        return (a.city || "").localeCompare(b.city || "");
+      }
+      return (a.name || "").localeCompare(b.name || "");
+    });
 
   // Handle removing a stop from fuel plan
   const handleRemoveStop = (indexToRemove) => {
