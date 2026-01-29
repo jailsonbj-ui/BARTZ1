@@ -125,10 +125,12 @@ export default function FleetDashboard() {
     setFuelPlan(null);
     setAiResponse(null);
     setPlanModified(false);
+    setDirectionsResponse(null);
+    
     try {
       const response = await axios.post(`${API}/calculate-route`, {
         origin_city: originCity,
-        destination_city: destinationCity,
+        destination_city: waypointCities.filter(c => c.trim()).length > 0 ? destinationCity : destinationCity,
         waypoint_cities: waypointCities.filter(c => c.trim()),
         vehicle,
       });
@@ -136,6 +138,36 @@ export default function FleetDashboard() {
       // Add unique ID to force re-render of route
       const routeWithId = { ...response.data, id: Date.now() };
       setRouteData(routeWithId);
+      
+      // Get Google Directions for draggable route
+      if (window.google && window.google.maps) {
+        const directionsService = new window.google.maps.DirectionsService();
+        
+        const waypts = waypointCities
+          .filter(c => c.trim())
+          .map(city => ({
+            location: city,
+            stopover: true
+          }));
+        
+        directionsService.route(
+          {
+            origin: originCity,
+            destination: destinationCity,
+            waypoints: waypts,
+            travelMode: window.google.maps.TravelMode.DRIVING,
+            region: 'BR'
+          },
+          (result, status) => {
+            if (status === 'OK') {
+              setDirectionsResponse(result);
+            } else {
+              console.log('Directions request failed:', status);
+              // Keep using Polyline as fallback
+            }
+          }
+        );
+      }
       
       // Auto-plan fuel stops when:
       // 1. Distance > autonomy (won't make it), OR
