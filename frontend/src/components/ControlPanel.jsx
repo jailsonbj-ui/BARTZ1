@@ -1246,6 +1246,35 @@ export default function ControlPanel({
                     )}
                   </div>
 
+                  {/* Sort Buttons */}
+                  <div className="flex items-center gap-1 text-xs">
+                    <span className="text-muted-foreground mr-1">Ordenar:</span>
+                    <button
+                      onClick={() => setStationSortOrder("name")}
+                      className={`px-2 py-1 rounded transition-colors ${
+                        stationSortOrder === "name" ? "bg-primary text-white" : "bg-secondary/50 text-muted-foreground hover:bg-secondary"
+                      }`}
+                    >
+                      Nome
+                    </button>
+                    <button
+                      onClick={() => setStationSortOrder("price")}
+                      className={`px-2 py-1 rounded transition-colors ${
+                        stationSortOrder === "price" ? "bg-primary text-white" : "bg-secondary/50 text-muted-foreground hover:bg-secondary"
+                      }`}
+                    >
+                      Preço
+                    </button>
+                    <button
+                      onClick={() => setStationSortOrder("city")}
+                      className={`px-2 py-1 rounded transition-colors ${
+                        stationSortOrder === "city" ? "bg-primary text-white" : "bg-secondary/50 text-muted-foreground hover:bg-secondary"
+                      }`}
+                    >
+                      Cidade
+                    </button>
+                  </div>
+
                   {/* Station Count */}
                   {stationSearchQuery && (
                     <div className="text-xs text-muted-foreground px-1">
