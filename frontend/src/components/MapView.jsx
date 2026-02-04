@@ -746,21 +746,6 @@ export default function MapView({
               >
                 <Car className="w-4 h-4" /> Trânsito {showTraffic && "✓"}
               </button>
-
-              {directionsResponse && (
-                <>
-                  <div className="border-t border-white/10 my-2" />
-                  <div className="text-xs text-gray-400 px-2 mb-2 uppercase tracking-wide">Rota</div>
-                  <button
-                    onClick={() => setIsDraggable(!isDraggable)}
-                    className={`w-full flex items-center gap-2 px-3 py-2 rounded text-sm transition-colors ${
-                      isDraggable ? "bg-blue-500/20 text-blue-400" : "text-white hover:bg-white/10"
-                    }`}
-                  >
-                    <Move className="w-4 h-4" /> Arrastar Rota {isDraggable && "✓"}
-                  </button>
-                </>
-              )}
             </div>
           )}
         </div>
