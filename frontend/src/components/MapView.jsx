@@ -160,8 +160,6 @@ export default function MapView({
   onCreateStation,
   mapStyle = "dark",
   theme = "dark",
-  onRouteChanged,
-  directionsResponse,
 }) {
   const [map, setMap] = useState(null);
   const [activeInfoWindow, setActiveInfoWindow] = useState(null);
@@ -173,9 +171,7 @@ export default function MapView({
   const [searchBox, setSearchBox] = useState(null);
   const [searchValue, setSearchValue] = useState("");
   const [searchMarker, setSearchMarker] = useState(null);
-  const [isDraggable, setIsDraggable] = useState(true);
   const searchInputRef = useRef(null);
-  const directionsRendererRef = useRef(null);
 
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: GOOGLE_MAPS_KEY,
