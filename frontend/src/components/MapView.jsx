@@ -405,11 +405,18 @@ export default function MapView({
               },
             }}
             onDirectionsChanged={() => {
+              // Use setTimeout to debounce and get final result after drag ends
               if (directionsRendererRef.current && onRouteChanged) {
-                const result = directionsRendererRef.current.getDirections();
-                if (result) {
-                  onRouteChanged(result);
-                }
+                setTimeout(() => {
+                  try {
+                    const result = directionsRendererRef.current?.getDirections();
+                    if (result && result.routes && result.routes[0]) {
+                      onRouteChanged(result);
+                    }
+                  } catch (e) {
+                    console.log("Error getting directions:", e);
+                  }
+                }, 100);
               }
             }}
             onLoad={(renderer) => {
