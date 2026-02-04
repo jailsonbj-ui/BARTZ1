@@ -393,7 +393,6 @@ export default function FleetDashboard() {
 
   const handleClearPlan = () => {
     setRouteData(null);
-    setDirectionsResponse(null);
     setFuelPlan(null);
     setOriginCity("");
     setDestinationCity("");
@@ -404,33 +403,6 @@ export default function FleetDashboard() {
     setActiveTab("route");
     toast.success("Plano limpo! Pronto para novo cálculo.");
   };
-
-  const handleRouteChanged = useCallback((newDirections) => {
-    if (!newDirections || !newDirections.routes || !newDirections.routes[0]) return;
-    
-    const route = newDirections.routes[0];
-    
-    // Calculate total distance
-    let totalDistance = 0;
-    route.legs.forEach(leg => {
-      totalDistance += leg.distance.value;
-    });
-    totalDistance = totalDistance / 1000; // Convert to km
-    
-    // Only update route data (not directionsResponse to avoid loop)
-    if (routeData) {
-      const newRouteData = {
-        ...routeData,
-        id: Date.now(),
-        total_distance: totalDistance,
-      };
-      setRouteData(newRouteData);
-      
-      // Mark plan as modified
-      setPlanModified(true);
-      toast.info(`Rota ajustada: ${totalDistance.toFixed(0)} km`);
-    }
-  }, [routeData]);
 
   const addWaypoint = () => setWaypointCities([...waypointCities, ""]);
   const removeWaypoint = (index) => setWaypointCities(waypointCities.filter((_, i) => i !== index));
