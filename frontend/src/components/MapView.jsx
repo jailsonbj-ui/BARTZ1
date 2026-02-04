@@ -345,6 +345,14 @@ export default function MapView({
     draggingCursor: isCreatingStation ? "crosshair" : "grabbing",
   }), [mapStyle, mapType, isCreatingStation]);
 
+  // Clean up DirectionsRenderer when directionsResponse is cleared
+  useEffect(() => {
+    if (!directionsResponse && directionsRendererRef.current) {
+      directionsRendererRef.current.setMap(null);
+      directionsRendererRef.current = null;
+    }
+  }, [directionsResponse]);
+
   // Convert route geometry to Google Maps path format
   const routePath = useMemo(() => {
     if (!routeData?.route_geometry?.length) return [];
