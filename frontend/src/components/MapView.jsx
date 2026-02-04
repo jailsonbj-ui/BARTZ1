@@ -399,63 +399,17 @@ export default function MapView({
         {/* Traffic Layer */}
         {showTraffic && <TrafficLayer />}
 
-        {/* Route - Use DirectionsRenderer when available for draggable routes */}
-        {directionsResponse ? (
-          <DirectionsRenderer
-            key={`directions-${routeData?.id || 'default'}`}
-            directions={directionsResponse}
+        {/* Route Polyline - Simple and stable */}
+        {routeData && routePath.length > 1 && (
+          <Polyline
+            key={`route-${routeData.id || Date.now()}`}
+            path={routePath}
             options={{
-              draggable: isDraggable,
-              suppressMarkers: true,
-              preserveViewport: true,
-              polylineOptions: {
-                strokeColor: "#F97316",
-                strokeOpacity: 0.9,
-                strokeWeight: 5,
-              },
-            }}
-            onDirectionsChanged={() => {
-              // Use setTimeout to debounce and get final result after drag ends
-              if (directionsRendererRef.current && onRouteChanged) {
-                setTimeout(() => {
-                  try {
-                    const result = directionsRendererRef.current?.getDirections();
-                    if (result && result.routes && result.routes[0]) {
-                      onRouteChanged(result);
-                    }
-                  } catch (e) {
-                    console.log("Error getting directions:", e);
-                  }
-                }, 100);
-              }
-            }}
-            onLoad={(renderer) => {
-              // Clear previous renderer if exists
-              if (directionsRendererRef.current && directionsRendererRef.current !== renderer) {
-                directionsRendererRef.current.setMap(null);
-              }
-              directionsRendererRef.current = renderer;
-            }}
-            onUnmount={() => {
-              if (directionsRendererRef.current) {
-                directionsRendererRef.current.setMap(null);
-                directionsRendererRef.current = null;
-              }
+              strokeColor: "#F97316",
+              strokeOpacity: 0.9,
+              strokeWeight: 5,
             }}
           />
-        ) : (
-          /* Fallback to Polyline when no DirectionsRenderer */
-          routeData && routePath.length > 1 && (
-            <Polyline
-              key={`route-${routeData.id || Date.now()}-${routeData.total_distance}`}
-              path={routePath}
-              options={{
-                strokeColor: "#F97316",
-                strokeOpacity: 0.9,
-                strokeWeight: 5,
-              }}
-            />
-          )
         )}
 
         {/* Route Points (Origin, Destination, Waypoints) */}
