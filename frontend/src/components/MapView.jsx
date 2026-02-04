@@ -394,10 +394,12 @@ export default function MapView({
         {/* Route - Use DirectionsRenderer when available for draggable routes */}
         {directionsResponse ? (
           <DirectionsRenderer
+            key={`directions-${routeData?.id || 'default'}`}
             directions={directionsResponse}
             options={{
               draggable: isDraggable,
               suppressMarkers: true,
+              preserveViewport: true,
               polylineOptions: {
                 strokeColor: "#F97316",
                 strokeOpacity: 0.9,
@@ -420,7 +422,17 @@ export default function MapView({
               }
             }}
             onLoad={(renderer) => {
+              // Clear previous renderer if exists
+              if (directionsRendererRef.current && directionsRendererRef.current !== renderer) {
+                directionsRendererRef.current.setMap(null);
+              }
               directionsRendererRef.current = renderer;
+            }}
+            onUnmount={() => {
+              if (directionsRendererRef.current) {
+                directionsRendererRef.current.setMap(null);
+                directionsRendererRef.current = null;
+              }
             }}
           />
         ) : (
