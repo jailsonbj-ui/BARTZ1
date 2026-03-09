@@ -1,16 +1,38 @@
-# Bartz - Sistema de Gestão de Abastecimento de Frota v3.4
+# Bartz - Sistema de Gestão de Abastecimento de Frota v4.0
 
 ## Problema Original
 Sistema inteligente de logística para controle de abastecimento de carretas de frota.
 
 ## O Que Foi Implementado
 
-### Versão 3.4 - Arrastar Rota (29/01/2026) ✅
-- **Rota arrastável igual ao Google Maps**:
-  - Calcule uma rota e arraste a linha para criar desvios
-  - Opção "Arrastar Rota" no menu Camadas
-  - Distância recalculada automaticamente ao arrastar
-  - Mensagem para reanalisar o plano após ajuste
+### Versão 4.0 - Sistema de Autenticação (09/03/2026) ✅
+- **Tela de Login**:
+  - Design profissional com logotipos Bartz e Brambila
+  - Campos de usuário e senha com toggle de visibilidade
+  - Mensagem "Sessão válida até meia-noite"
+- **Usuário Admin Inicial**: JAI / 123
+- **Rotas Protegidas**:
+  - Dashboard acessível apenas para usuários autenticados
+  - Redirecionamento automático para /login
+- **Menu do Usuário**:
+  - Mostra nome e username do usuário logado
+  - Acesso ao Painel Admin (para administradores)
+  - Botão de Logout
+- **Painel de Administração**:
+  - Aba "Usuários": Lista todos os usuários com badges de role
+  - Aba "Novo Usuário": Formulário para criar usuários com permissões
+  - Aba "Histórico de Acesso": Logs de login com timestamps
+- **Permissões Disponíveis**:
+  - `edit_stations`: Alterar Postos
+  - `view_history`: Ver Histórico
+  - `create_users`: Criar Usuários
+- **Sessão com Expiração à Meia-noite**:
+  - Token JWT válido até meia-noite do dia atual
+  - Login automático exigido no dia seguinte
+
+### Versão 3.4 - Arrastar Rota (29/01/2026) ⚠️ REMOVIDO
+- Funcionalidade removida devido a instabilidade (travamentos e duplicidade de rotas)
+- Alternativa: usar campo "Adicionar Parada"
 
 ### Versão 3.3 - Copiar Localização (28/01/2026) ✅
 - **Botão "Copiar Localização"** no balão de cada posto
@@ -24,93 +46,64 @@ Sistema inteligente de logística para controle de abastecimento de carretas de 
   - Exibe equivalente em litros automaticamente
 
 ### Versão 3.1 - Otimização do Plano de Abastecimento (28/01/2026) ✅
-- **Adicionar posto manualmente ao plano**:
-  - Botão "+ Adicionar Posto ao Plano" no painel de abastecimento
-  - Modal para selecionar posto e quantidade de litros
-  - Postos já incluídos no plano são marcados como "Já no plano"
-- **Regra de consolidação de paradas (200km)**:
-  - Se dois postos estão a menos de 200km, mantém apenas o mais barato
-  - Consolida o combustível em uma única parada para reduzir tempo
+- **Adicionar posto manualmente ao plano**
+- **Regra de consolidação de paradas (200km)**
 
 ### Versão 3.0 - Preenchimento Automático de Postos (28/01/2026) ✅
-- **Auto-preenchimento ao criar posto**:
-  - Ao pesquisar um local no mapa e criar um posto, o nome e cidade são preenchidos automaticamente
-  - Ex: Buscar "Posto Shell Curitiba" → Nome: "Posto Shell", Cidade: "Curitiba-PR"
+- **Auto-preenchimento ao criar posto**
 - **Botão "Criar Posto Aqui"** no InfoWindow do marcador de busca
-- **Aba "Postos" abre automaticamente** ao criar novo posto
-
-### Versão 2.9 - Configurações do Veículo (28/01/2026) ✅
-- **Capacidade padrão do tanque**: 850L (valor típico para carretas)
-- **Modo de entrada de combustível**: Toggle Litros/Porcentagem
-  - Permite informar o diesel atual em litros ou porcentagem
-  - Mostra conversão automática (ex: 24% = 204 litros)
-
-### Versão 2.8 - Melhorias Visuais (28/01/2026) ✅
-- **Cores claras/pastel**: 12 cores para melhor visibilidade no mapa
-  - Laranja, Azul, Verde, Vermelho, Roxo, Amarelo
-  - Rosa, Ciano, Lima, Âmbar, Branco, Turquesa
-- **Mais ícones para postos**: 14 opções
-  - Combustível, Estrela, Círculo, Quadrado, Losango, Caminhão
-  - Shell, Petrobras, Ipiranga, ALE, Bandeira, Pin, Bomba, Gota
-- **Mapa inicia com camada híbrida + trânsito ativado**
-
-### Versão 2.7 - Correções de Bugs (28/01/2026) ✅
-- **Bug 1 CORRIGIDO**: Ícones e cores dos postos agora são salvos corretamente
-  - Adicionado `marker_icon` e `marker_color` ao modelo `FuelStationUpdate`
-- **Bug 2 CORRIGIDO**: Novas rotas substituem rotas anteriores corretamente
-  - Adicionada key dinâmica ao componente Polyline para forçar recriação
-
-### Versão 2.6 - Busca e Personalização (24/01/2026) ✅
-- **Marcador de busca no mapa**:
-  - Ao buscar um local, marcador vermelho aparece no ponto
-  - Mapa centraliza automaticamente no local
-  - Botão X limpa busca e remove marcador
-- **Personalização de ícones dos postos**:
-  - 6 ícones: Combustível, Estrela, Círculo, Quadrado, Losango, Caminhão
-  - 8 cores: Laranja, Azul, Verde, Vermelho, Roxo, Amarelo, Rosa, Ciano
-  - Salva no banco de dados por posto
-
-### Versão 2.5 - Refinamentos ✅
-- Barra de pesquisa no mapa (Google Places)
-- Botão "Completar" nas paradas
-- Ordem sem valor monetário
-- Postos limitados a 50km da rota
-- Renomeado para BARTZ
 
 ### Versões Anteriores ✅
+- Capacidade padrão do tanque: 850L
+- Cores claras/pastel e mais ícones para postos
+- Correções de bugs (ícones, cores, rotas)
+- Busca e personalização
 - Lógica otimizada para carretas
 - Consultor IA
 - Google Maps com camadas
-- Edição/remoção de paradas
 
-## Personalização de Marcadores
-```javascript
-STATION_ICONS = {
-  fuel: "Combustível",
-  star: "Estrela", 
-  circle: "Círculo",
-  square: "Quadrado",
-  diamond: "Losango",
-  truck: "Caminhão"
-}
+## APIs de Autenticação
+- `POST /api/auth/login` - Login (retorna token JWT e dados do usuário)
+- `GET /api/auth/me` - Dados do usuário autenticado
+- `GET /api/users` - Lista usuários (requer admin)
+- `POST /api/users` - Criar usuário (requer admin)
+- `PUT /api/users/{id}` - Atualizar usuário (requer admin)
+- `DELETE /api/users/{id}` - Excluir usuário (requer admin)
+- `GET /api/access-logs` - Histórico de acessos (requer admin)
 
-STATION_COLORS = {
-  orange, blue, green, red,
-  purple, yellow, pink, cyan
-}
-```
-
-## APIs Disponíveis
-- `GET /api/stations` - Lista postos (inclui marker_icon, marker_color)
-- `POST /api/stations` - Cria posto com personalização
+## APIs de Operação
+- `GET /api/stations` - Lista postos
+- `POST /api/stations` - Cria posto
 - `PUT /api/stations/{id}` - Atualiza posto
+- `DELETE /api/stations/{id}` - Exclui posto
 - `POST /api/calculate-route` - Calcula rota
 - `POST /api/plan-fuel-stops` - Planeja abastecimentos
 - `POST /api/ai-advisor` - Consultor IA
 - `POST /api/generate-full-order` - Ordem completa
 
-## Próximas Tarefas (Backlog)
-1. Histórico de viagens realizadas
-2. Dashboard de análise de custos
-3. Notificações de preços baixos
-4. Integração com GPS do caminhão
+## Credenciais de Teste
+- **Admin**: JAI / 123
+
+## Problemas Conhecidos
+1. **BLOCKER - Google Maps**: API exibe "For development purposes only" - problema na conta Google Cloud do usuário (faturamento/limites)
+
+## Tarefas Concluídas na Sessão Atual
+- [x] Sistema de autenticação JWT
+- [x] Tela de login com logotipos
+- [x] Painel de administração
+- [x] Gerenciamento de usuários e permissões
+- [x] Histórico de acessos
+- [x] Expiração de sessão à meia-noite
+
+## Próximas Tarefas (P1)
+1. Timeout visual da sessão (countdown para meia-noite)
+2. Botão de "Imprimir" na Ordem de Abastecimento
+3. Edição de senha do próprio usuário
+
+## Backlog (P2-P3)
+1. Re-avaliar funcionalidade de "arrastar rota" (removida por instabilidade)
+2. Histórico de planos de abastecimento
+3. Regra para ícones/cores automáticos com base no nome do posto
+4. Dashboard de análise de custos
+5. Notificações de preços baixos
+6. Integração com GPS do caminhão
