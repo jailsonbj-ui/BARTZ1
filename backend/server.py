@@ -1550,6 +1550,202 @@ async def root():
 async def health_check():
     return {"status": "healthy", "timestamp": datetime.now(timezone.utc).isoformat()}
 
+
+# ========== AUTHENTICATION SYSTEM ==========
+
+class UserCreate(BaseModel):
+    username: str
+    password: str
+    name: str
+    role: str = "monitor"  # "admin" or "monitor"
+    permissions: List[str] = []  # ["edit_stations", "view_history", "create_users"]
+
+class UserLogin(BaseModel):
+    username: str
+    password: str
+
+class UserUpdate(BaseModel):
+    name: Optional[str] = None
+    role: Optional[str] = None
+    permissions: Optional[List[str]] = None
+    is_active: Optional[bool] = None
+
+def hash_password(password: str) -> str:
+    return hashlib.sha256(password.encode()).hexdigest()
+
+def create_token(user_id: str, username: str, role: str) -> str:
+    # Token expires at midnight of current day
+    now = datetime.now(timezone.utc)
+    midnight = now.replace(hour=23, minute=59, second=59, microsecond=999999)
+    
+    payload = {
+        "user_id": user_id,
+        "username": username,
+        "role": role,
+        "exp": midnight,
+        "iat": now
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+def verify_token(token: str) -> dict:
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        return payload
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Sessão expirada. Faça login novamente.")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Token inválido")
+
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    if not credentials:
+        raise HTTPException(status_code=401, detail="Não autenticado")
+    
+    payload = verify_token(credentials.credentials)
+    user = await db.users.find_one({"id": payload["user_id"]}, {"_id": 0})
+    if not user:
+        raise HTTPException(status_code=401, detail="Usuário não encontrado")
+    if not user.get("is_active", True):
+        raise HTTPException(status_code=401, detail="Usuário desativado")
+    return user
+
+async def require_admin(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    user = await get_current_user(credentials)
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Acesso negado. Requer permissão de administrador.")
+    return user
+
+# Initialize default admin user
+@app.on_event("startup")
+async def create_default_admin():
+    admin_exists = await db.users.find_one({"username": "JAI"})
+    if not admin_exists:
+        admin_user = {
+            "id": str(uuid.uuid4()),
+            "username": "JAI",
+            "password": hash_password("123"),
+            "name": "Administrador",
+            "role": "admin",
+            "permissions": ["edit_stations", "view_history", "create_users"],
+            "is_active": True,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.users.insert_one(admin_user)
+        logger.info("Default admin user JAI created")
+
+@api_router.post("/auth/login")
+async def login(data: UserLogin):
+    user = await db.users.find_one({"username": data.username}, {"_id": 0})
+    
+    if not user:
+        raise HTTPException(status_code=401, detail="Usuário ou senha incorretos")
+    
+    if user.get("password") != hash_password(data.password):
+        raise HTTPException(status_code=401, detail="Usuário ou senha incorretos")
+    
+    if not user.get("is_active", True):
+        raise HTTPException(status_code=401, detail="Usuário desativado")
+    
+    # Create access log
+    access_log = {
+        "id": str(uuid.uuid4()),
+        "user_id": user["id"],
+        "username": user["username"],
+        "name": user.get("name", ""),
+        "action": "login",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "ip": "N/A"
+    }
+    await db.access_logs.insert_one(access_log)
+    
+    token = create_token(user["id"], user["username"], user["role"])
+    
+    return {
+        "token": token,
+        "user": {
+            "id": user["id"],
+            "username": user["username"],
+            "name": user.get("name", ""),
+            "role": user["role"],
+            "permissions": user.get("permissions", [])
+        }
+    }
+
+@api_router.get("/auth/me")
+async def get_me(user: dict = Depends(get_current_user)):
+    return {
+        "id": user["id"],
+        "username": user["username"],
+        "name": user.get("name", ""),
+        "role": user["role"],
+        "permissions": user.get("permissions", [])
+    }
+
+@api_router.get("/users")
+async def list_users(user: dict = Depends(require_admin)):
+    users = await db.users.find({}, {"_id": 0, "password": 0}).to_list(100)
+    return users
+
+@api_router.post("/users")
+async def create_user(data: UserCreate, admin: dict = Depends(require_admin)):
+    # Check if username exists
+    existing = await db.users.find_one({"username": data.username})
+    if existing:
+        raise HTTPException(status_code=400, detail="Nome de usuário já existe")
+    
+    new_user = {
+        "id": str(uuid.uuid4()),
+        "username": data.username,
+        "password": hash_password(data.password),
+        "name": data.name,
+        "role": data.role,
+        "permissions": data.permissions,
+        "is_active": True,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_by": admin["id"]
+    }
+    await db.users.insert_one(new_user)
+    
+    # Log action
+    await db.access_logs.insert_one({
+        "id": str(uuid.uuid4()),
+        "user_id": admin["id"],
+        "username": admin["username"],
+        "action": f"created_user:{data.username}",
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    })
+    
+    return {"id": new_user["id"], "username": new_user["username"], "message": "Usuário criado com sucesso"}
+
+@api_router.put("/users/{user_id}")
+async def update_user(user_id: str, data: UserUpdate, admin: dict = Depends(require_admin)):
+    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+    if not update_data:
+        raise HTTPException(status_code=400, detail="Nenhum dado para atualizar")
+    
+    result = await db.users.update_one({"id": user_id}, {"$set": update_data})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    
+    return {"message": "Usuário atualizado com sucesso"}
+
+@api_router.delete("/users/{user_id}")
+async def delete_user(user_id: str, admin: dict = Depends(require_admin)):
+    # Don't allow deleting yourself
+    if user_id == admin["id"]:
+        raise HTTPException(status_code=400, detail="Você não pode excluir sua própria conta")
+    
+    result = await db.users.delete_one({"id": user_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    
+    return {"message": "Usuário excluído com sucesso"}
+
+@api_router.get("/access-logs")
+async def get_access_logs(user: dict = Depends(require_admin), limit: int = 100):
+    logs = await db.access_logs.find({}, {"_id": 0}).sort("timestamp", -1).to_list(limit)
+    return logs
+
+
 # Include router
 app.include_router(api_router)
 
