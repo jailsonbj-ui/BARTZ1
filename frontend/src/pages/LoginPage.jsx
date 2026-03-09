@@ -6,7 +6,7 @@ import { Loader2, LogIn, Eye, EyeOff } from "lucide-react";
 import axios from "axios";
 import { toast } from "sonner";
 
-const API = process.env.REACT_APP_BACKEND_URL;
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export default function LoginPage({ onLogin }) {
   const [username, setUsername] = useState("");

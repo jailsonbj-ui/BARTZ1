@@ -3,7 +3,8 @@ import axios from "axios";
 import { toast } from "sonner";
 import MapView from "@/components/MapView";
 import ControlPanel from "@/components/ControlPanel";
-import { Fuel, PanelRightClose, PanelRightOpen, Palette } from "lucide-react";
+import { Fuel, PanelRightClose, PanelRightOpen, Palette, User, Shield, LogOut } from "lucide-react";
+import AdminPanel from "@/components/AdminPanel";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -54,7 +55,7 @@ const THEMES = {
   }
 };
 
-export default function FleetDashboard() {
+export default function FleetDashboard({ user, token, onLogout }) {
   const [stations, setStations] = useState([]);
   const [selectedStation, setSelectedStation] = useState(null);
   const [isPanelOpen, setIsPanelOpen] = useState(true);
@@ -62,6 +63,7 @@ export default function FleetDashboard() {
   const [routeData, setRouteData] = useState(null);
   const [mapStyle, setMapStyle] = useState("dark");
   const [theme, setTheme] = useState("dark");
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [vehicle, setVehicle] = useState({
     current_liters: 200,
     consumption_rate: 2.5,
@@ -461,6 +463,44 @@ export default function FleetDashboard() {
             </DropdownMenuContent>
           </DropdownMenu>
 
+          {/* User Menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                data-testid="user-menu-btn"
+                variant="ghost"
+                size="icon"
+                className={`${theme === 'light' ? 'text-gray-700' : 'text-muted-foreground'} hover:text-foreground`}
+              >
+                <User className="w-5 h-5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="bg-popover border-white/10 min-w-[180px]">
+              <div className="px-3 py-2 border-b border-white/10">
+                <p className="text-sm font-medium text-white">{user?.name || user?.username}</p>
+                <p className="text-xs text-gray-400">@{user?.username}</p>
+              </div>
+              {user?.role === "admin" && (
+                <DropdownMenuItem
+                  data-testid="admin-panel-btn"
+                  onClick={() => setShowAdminPanel(true)}
+                  className="cursor-pointer"
+                >
+                  <Shield className="w-4 h-4 mr-2 text-orange-500" />
+                  Painel Admin
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem
+                data-testid="logout-btn"
+                onClick={onLogout}
+                className="cursor-pointer text-red-400 focus:text-red-300"
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Sair
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           <Button
             data-testid="toggle-panel-btn"
             variant="ghost"
@@ -528,6 +568,15 @@ export default function FleetDashboard() {
         onAddStationToPlan={handleAddStationToPlan}
         onClearPlan={handleClearPlan}
       />
+
+      {/* Admin Panel Modal */}
+      {showAdminPanel && (
+        <AdminPanel
+          user={user}
+          token={token}
+          onClose={() => setShowAdminPanel(false)}
+        />
+      )}
     </div>
   );
 }

@@ -21,7 +21,7 @@ import {
 import axios from "axios";
 import { toast } from "sonner";
 
-const API = process.env.REACT_APP_BACKEND_URL;
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const PERMISSIONS = [
   { id: "edit_stations", label: "Alterar Postos", icon: Settings },
