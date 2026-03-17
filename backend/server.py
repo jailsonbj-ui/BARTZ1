@@ -1,5 +1,6 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.responses import StreamingResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -14,6 +15,7 @@ from emergentintegrations.llm.chat import LlmChat, UserMessage
 import httpx
 import hashlib
 import jwt
+import io
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -1744,6 +1746,136 @@ async def delete_user(user_id: str, admin: dict = Depends(require_admin)):
 async def get_access_logs(user: dict = Depends(require_admin), limit: int = 100):
     logs = await db.access_logs.find({}, {"_id": 0}).sort("timestamp", -1).to_list(limit)
     return logs
+
+
+# ========== PRICE REPORT (Excel) ==========
+
+@api_router.get("/reports/prices")
+async def generate_price_report(user: dict = Depends(require_admin)):
+    """Generate Excel report with all station prices - Admin only"""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, Fill, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+    
+    # Fetch all active stations
+    stations = await db.fuel_stations.find(
+        {"is_active": {"$ne": False}}, 
+        {"_id": 0}
+    ).sort("diesel_price", 1).to_list(1000)
+    
+    # Create workbook
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Preços Diesel"
+    
+    # Get current date
+    report_date = datetime.now(timezone.utc).strftime("%d/%m/%Y")
+    report_datetime = datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M")
+    
+    # Styles
+    header_font = Font(bold=True, color="FFFFFF", size=12)
+    header_fill = PatternFill(start_color="10B981", end_color="10B981", fill_type="solid")
+    title_font = Font(bold=True, size=14)
+    border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+    
+    # Title row
+    ws.merge_cells('A1:E1')
+    ws['A1'] = f"Relatório de Preços - {report_datetime}"
+    ws['A1'].font = title_font
+    ws['A1'].alignment = Alignment(horizontal='center')
+    
+    # Headers
+    headers = ["Data", "Posto", "Cidade", "Estado", "Preço (R$)"]
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=3, column=col, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center')
+        cell.border = border
+    
+    # Data rows
+    for row_idx, station in enumerate(stations, 4):
+        # Extract state from city (e.g., "Curitiba-PR" -> "PR")
+        city = station.get('city', '')
+        state = ''
+        city_name = city
+        
+        if city:
+            if '-' in city:
+                parts = city.rsplit('-', 1)
+                city_name = parts[0].strip()
+                state = parts[1].strip() if len(parts) > 1 else ''
+            elif ',' in city:
+                parts = city.rsplit(',', 1)
+                city_name = parts[0].strip()
+                state = parts[1].strip() if len(parts) > 1 else ''
+        
+        row_data = [
+            report_date,
+            station.get('name', ''),
+            city_name,
+            state,
+            station.get('diesel_price', 0)
+        ]
+        
+        for col, value in enumerate(row_data, 1):
+            cell = ws.cell(row=row_idx, column=col, value=value)
+            cell.border = border
+            if col == 5:  # Price column
+                cell.number_format = '#,##0.00'
+                cell.alignment = Alignment(horizontal='right')
+            else:
+                cell.alignment = Alignment(horizontal='left')
+    
+    # Adjust column widths
+    column_widths = [12, 40, 25, 10, 12]
+    for col, width in enumerate(column_widths, 1):
+        ws.column_dimensions[get_column_letter(col)].width = width
+    
+    # Summary row
+    total_row = len(stations) + 5
+    ws.cell(row=total_row, column=1, value=f"Total de postos: {len(stations)}")
+    ws.cell(row=total_row, column=1).font = Font(bold=True)
+    
+    if stations:
+        avg_price = sum(s.get('diesel_price', 0) for s in stations) / len(stations)
+        min_price = min(s.get('diesel_price', 999) for s in stations)
+        max_price = max(s.get('diesel_price', 0) for s in stations)
+        
+        ws.cell(row=total_row + 1, column=1, value=f"Preço médio: R$ {avg_price:.2f}")
+        ws.cell(row=total_row + 2, column=1, value=f"Menor preço: R$ {min_price:.2f}")
+        ws.cell(row=total_row + 3, column=1, value=f"Maior preço: R$ {max_price:.2f}")
+    
+    # Log the report generation
+    await db.access_logs.insert_one({
+        "id": str(uuid.uuid4()),
+        "user_id": user["id"],
+        "username": user["username"],
+        "name": user.get("name", ""),
+        "action": "generated_price_report",
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    })
+    
+    # Save to bytes
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    
+    # Generate filename with date
+    filename = f"precos_diesel_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
+    
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": f"attachment; filename={filename}"
+        }
+    )
 
 
 # Include router

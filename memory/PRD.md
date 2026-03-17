@@ -1,57 +1,33 @@
-# Bartz - Sistema de Gestão de Abastecimento de Frota v4.0
+# Bartz - Sistema de Gestão de Abastecimento de Frota v4.1
 
 ## Problema Original
 Sistema inteligente de logística para controle de abastecimento de carretas de frota.
 
 ## O Que Foi Implementado
 
+### Versão 4.1 - Relatório de Preços Excel + UI Melhorada (17/03/2026) ✅
+- **Nova Tela de Login**:
+  - Imagem de fundo personalizada (caminhões Brambila)
+  - Formulário glass-morphism no lado direito
+  - Design responsivo (desktop e mobile)
+- **Destaque de Preços por Estado no Mapa**:
+  - 🟢 Verde (com ★) = Top 3 melhores preços do estado
+  - 🔴 Vermelho (com !) = Top 3 piores preços do estado
+  - InfoWindow mostra badges "Melhor preço" / "Preço alto"
+- **Relatório de Preços Excel** (Admin only):
+  - Nova aba "Relatórios" no Painel Admin
+  - Botão para baixar Excel com todos os postos
+  - Colunas: Data, Posto, Cidade, Estado, Preço
+  - Ordenado por preço (menor para maior)
+  - Resumo com total, média, menor e maior preço
+  - Download é registrado no histórico de acesso
+
 ### Versão 4.0 - Sistema de Autenticação (09/03/2026) ✅
-- **Tela de Login**:
-  - Design profissional com logotipos Bartz e Brambila
-  - Campos de usuário e senha com toggle de visibilidade
-  - Mensagem "Sessão válida até meia-noite"
-- **Usuário Admin Inicial**: JAI / 123
-- **Rotas Protegidas**:
-  - Dashboard acessível apenas para usuários autenticados
-  - Redirecionamento automático para /login
-- **Menu do Usuário**:
-  - Mostra nome e username do usuário logado
-  - Acesso ao Painel Admin (para administradores)
-  - Botão de Logout
-- **Painel de Administração**:
-  - Aba "Usuários": Lista todos os usuários com badges de role
-  - Aba "Novo Usuário": Formulário para criar usuários com permissões
-  - Aba "Histórico de Acesso": Logs de login com timestamps
-- **Permissões Disponíveis**:
-  - `edit_stations`: Alterar Postos
-  - `view_history`: Ver Histórico
-  - `create_users`: Criar Usuários
-- **Sessão com Expiração à Meia-noite**:
-  - Token JWT válido até meia-noite do dia atual
-  - Login automático exigido no dia seguinte
-
-### Versão 3.4 - Arrastar Rota (29/01/2026) ⚠️ REMOVIDO
-- Funcionalidade removida devido a instabilidade (travamentos e duplicidade de rotas)
-- Alternativa: usar campo "Adicionar Parada"
-
-### Versão 3.3 - Copiar Localização (28/01/2026) ✅
-- **Botão "Copiar Localização"** no balão de cada posto
-- Copia coordenadas no formato `latitude,longitude`
-
-### Versão 3.2 - Slider Visual do Tanque (28/01/2026) ✅
-- **Slider visual para porcentagem do tanque**:
-  - Barra de nível animada mostrando o combustível atual
-  - Botões de seleção rápida: 0%, 25%, 50%, 75%, 100%
-  - Arrastar para ajustar o nível (incrementos de 5%)
-  - Exibe equivalente em litros automaticamente
-
-### Versão 3.1 - Otimização do Plano de Abastecimento (28/01/2026) ✅
-- **Adicionar posto manualmente ao plano**
-- **Regra de consolidação de paradas (200km)**
-
-### Versão 3.0 - Preenchimento Automático de Postos (28/01/2026) ✅
-- **Auto-preenchimento ao criar posto**
-- **Botão "Criar Posto Aqui"** no InfoWindow do marcador de busca
+- Tela de login com logotipos
+- Usuário Admin inicial: JAI / 123
+- Rotas protegidas (JWT)
+- Painel de Administração (Usuários, Novo Usuário, Histórico)
+- Sessão válida até meia-noite
 
 ### Versões Anteriores ✅
 - Capacidade padrão do tanque: 850L
@@ -62,48 +38,48 @@ Sistema inteligente de logística para controle de abastecimento de carretas de 
 - Consultor IA
 - Google Maps com camadas
 
-## APIs de Autenticação
-- `POST /api/auth/login` - Login (retorna token JWT e dados do usuário)
-- `GET /api/auth/me` - Dados do usuário autenticado
-- `GET /api/users` - Lista usuários (requer admin)
-- `POST /api/users` - Criar usuário (requer admin)
-- `PUT /api/users/{id}` - Atualizar usuário (requer admin)
-- `DELETE /api/users/{id}` - Excluir usuário (requer admin)
-- `GET /api/access-logs` - Histórico de acessos (requer admin)
+## APIs
 
-## APIs de Operação
+### Autenticação
+- `POST /api/auth/login` - Login (JWT)
+- `GET /api/auth/me` - Usuário autenticado
+
+### Admin (requer admin)
+- `GET /api/users` - Lista usuários
+- `POST /api/users` - Criar usuário
+- `PUT /api/users/{id}` - Atualizar
+- `DELETE /api/users/{id}` - Excluir
+- `GET /api/access-logs` - Histórico de acessos
+- `GET /api/reports/prices` - **NOVO** Relatório Excel de preços
+
+### Operação
 - `GET /api/stations` - Lista postos
 - `POST /api/stations` - Cria posto
-- `PUT /api/stations/{id}` - Atualiza posto
-- `DELETE /api/stations/{id}` - Exclui posto
+- `PUT /api/stations/{id}` - Atualiza
+- `DELETE /api/stations/{id}` - Exclui
 - `POST /api/calculate-route` - Calcula rota
 - `POST /api/plan-fuel-stops` - Planeja abastecimentos
 - `POST /api/ai-advisor` - Consultor IA
-- `POST /api/generate-full-order` - Ordem completa
 
 ## Credenciais de Teste
 - **Admin**: JAI / 123
 
 ## Problemas Conhecidos
-1. **BLOCKER - Google Maps**: API exibe "For development purposes only" - problema na conta Google Cloud do usuário (faturamento/limites)
+1. **BLOCKER - Google Maps**: API exibe "For development purposes only" - problema na conta Google Cloud do usuário
 
-## Tarefas Concluídas na Sessão Atual
-- [x] Sistema de autenticação JWT
-- [x] Tela de login com logotipos
-- [x] Painel de administração
-- [x] Gerenciamento de usuários e permissões
-- [x] Histórico de acessos
-- [x] Expiração de sessão à meia-noite
+## Tarefas Concluídas Nesta Sessão
+- [x] Nova tela de login com imagem de fundo personalizada
+- [x] Destaque de preços por estado no mapa (verde/vermelho)
+- [x] Relatório de preços em Excel (admin only)
+- [x] Nova aba "Relatórios" no painel admin
 
 ## Próximas Tarefas (P1)
-1. Timeout visual da sessão (countdown para meia-noite)
-2. Botão de "Imprimir" na Ordem de Abastecimento
-3. Edição de senha do próprio usuário
+1. Adicionar campo estado nos postos para melhor organização
+2. Timeout visual da sessão (countdown para meia-noite)
+3. Botão de "Imprimir" na Ordem de Abastecimento
 
 ## Backlog (P2-P3)
-1. Re-avaliar funcionalidade de "arrastar rota" (removida por instabilidade)
-2. Histórico de planos de abastecimento
-3. Regra para ícones/cores automáticos com base no nome do posto
-4. Dashboard de análise de custos
-5. Notificações de preços baixos
-6. Integração com GPS do caminhão
+1. Histórico de planos de abastecimento
+2. Dashboard de análise de custos
+3. Notificações de preços baixos
+4. Re-avaliar funcionalidade de "arrastar rota"

@@ -16,7 +16,9 @@ import {
   Loader2,
   LogIn,
   LogOut,
-  Settings
+  Settings,
+  FileSpreadsheet,
+  Download
 } from "lucide-react";
 import axios from "axios";
 import { toast } from "sonner";
@@ -208,6 +210,17 @@ export default function AdminPanel({ user, token, onClose }) {
           >
             <History className="w-4 h-4 inline mr-2" />
             Histórico de Acesso
+          </button>
+          <button
+            onClick={() => setActiveTab("reports")}
+            className={`flex-1 py-3 px-4 text-sm font-medium transition-colors ${
+              activeTab === "reports" 
+                ? "bg-emerald-500/20 text-emerald-400 border-b-2 border-emerald-500" 
+                : "text-gray-400 hover:text-white"
+            }`}
+          >
+            <FileSpreadsheet className="w-4 h-4 inline mr-2" />
+            Relatórios
           </button>
         </div>
 
@@ -424,6 +437,91 @@ export default function AdminPanel({ user, token, onClose }) {
                   </div>
                 ))
               )}
+            </div>
+          )}
+
+          {/* Reports Tab */}
+          {activeTab === "reports" && (
+            <div className="space-y-6">
+              <div className="text-center py-4">
+                <FileSpreadsheet className="w-16 h-16 mx-auto text-emerald-500 mb-4" />
+                <h3 className="text-xl font-semibold text-white mb-2">Relatórios</h3>
+                <p className="text-gray-400 mb-6">Exporte dados do sistema em formato Excel</p>
+              </div>
+
+              {/* Price Report Card */}
+              <div className="bg-slate-700/30 rounded-xl p-6 border border-white/5">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-emerald-500/20 flex items-center justify-center">
+                      <Download className="w-6 h-6 text-emerald-400" />
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-white text-lg">Relatório de Preços</h4>
+                      <p className="text-sm text-gray-400 mt-1">
+                        Exporta todos os postos ativos com preços atuais
+                      </p>
+                      <p className="text-xs text-gray-500 mt-2">
+                        Colunas: Data, Posto, Cidade, Estado, Preço
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    data-testid="btn-export-prices"
+                    onClick={async () => {
+                      try {
+                        toast.loading("Gerando relatório...", { id: "report" });
+                        const response = await axios.get(`${API}/reports/prices`, {
+                          headers: { Authorization: `Bearer ${token}` },
+                          responseType: 'blob'
+                        });
+                        
+                        // Create download link
+                        const url = window.URL.createObjectURL(new Blob([response.data]));
+                        const link = document.createElement('a');
+                        link.href = url;
+                        
+                        // Get filename from header or generate one
+                        const contentDisposition = response.headers['content-disposition'];
+                        let filename = `precos_diesel_${new Date().toISOString().split('T')[0]}.xlsx`;
+                        if (contentDisposition) {
+                          const match = contentDisposition.match(/filename=(.+)/);
+                          if (match) filename = match[1];
+                        }
+                        
+                        link.setAttribute('download', filename);
+                        document.body.appendChild(link);
+                        link.click();
+                        link.remove();
+                        window.URL.revokeObjectURL(url);
+                        
+                        toast.success("Relatório baixado com sucesso!", { id: "report" });
+                      } catch (error) {
+                        console.error("Error generating report:", error);
+                        toast.error("Erro ao gerar relatório", { id: "report" });
+                      }
+                    }}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Baixar Excel
+                  </Button>
+                </div>
+              </div>
+
+              {/* Info Box */}
+              <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+                <div className="flex gap-3">
+                  <div className="text-blue-400 mt-0.5">ℹ️</div>
+                  <div className="text-sm text-blue-300">
+                    <p className="font-medium mb-1">Dica:</p>
+                    <p className="text-blue-300/80">
+                      Os relatórios são gerados com a data e hora atual. O arquivo Excel pode ser 
+                      aberto diretamente no Microsoft Excel ou Google Planilhas.
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </CardContent>
