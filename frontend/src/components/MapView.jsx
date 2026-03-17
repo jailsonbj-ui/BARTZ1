@@ -83,15 +83,49 @@ const STATION_COLORS = {
   teal: { name: "Turquesa", hex: "#5EEAD4" },
 };
 
+// Price ranking colors
+const PRICE_RANKING_COLORS = {
+  best: "#10B981",    // Emerald/Green - Top 3 best prices in state
+  worst: "#EF4444",   // Red - Top 3 worst prices in state
+  normal: null,       // Use default color
+};
+
 // Custom marker icons using SVG data URLs
-const createStationMarkerIcon = (station, isPlannedStop, stopNumber) => {
+const createStationMarkerIcon = (station, isPlannedStop, stopNumber, priceRanking = null) => {
   const isActive = station.is_active !== false;
   const customColor = station.marker_color || "orange";
   const customIcon = station.marker_icon || "fuel";
   
-  const baseColor = isPlannedStop ? "#10B981" : isActive ? (STATION_COLORS[customColor]?.hex || "#F97316") : "#64748B";
+  // Determine color based on price ranking
+  let baseColor;
+  let borderColor = "white";
+  let borderWidth = 3;
+  
+  if (isPlannedStop) {
+    baseColor = "#10B981";
+  } else if (!isActive) {
+    baseColor = "#64748B";
+  } else if (priceRanking === "best") {
+    baseColor = PRICE_RANKING_COLORS.best;
+    borderColor = "#065F46"; // Darker green border
+    borderWidth = 4;
+  } else if (priceRanking === "worst") {
+    baseColor = PRICE_RANKING_COLORS.worst;
+    borderColor = "#7F1D1D"; // Darker red border
+    borderWidth = 4;
+  } else {
+    baseColor = STATION_COLORS[customColor]?.hex || "#F97316";
+  }
+  
   const iconPath = STATION_ICONS[customIcon]?.path || STATION_ICONS.fuel.path;
   const opacity = isActive ? "1" : "0.6";
+  
+  // Add crown for best prices, skull for worst
+  const rankingBadge = priceRanking === "best" 
+    ? `<circle cx="32" cy="8" r="8" fill="#10B981" stroke="white" stroke-width="2"/><text x="32" y="12" text-anchor="middle" fill="white" font-size="10" font-weight="bold">★</text>`
+    : priceRanking === "worst"
+    ? `<circle cx="32" cy="8" r="8" fill="#EF4444" stroke="white" stroke-width="2"/><text x="32" y="12" text-anchor="middle" fill="white" font-size="10" font-weight="bold">!</text>`
+    : '';
   
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="40" height="56" viewBox="0 0 40 56" opacity="${opacity}">
@@ -100,9 +134,9 @@ const createStationMarkerIcon = (station, isPlannedStop, stopNumber) => {
           <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000" flood-opacity="0.3"/>
         </filter>
       </defs>
-      <circle cx="20" cy="20" r="16" fill="${baseColor}" stroke="white" stroke-width="3" filter="url(#shadow)"/>
+      <circle cx="20" cy="20" r="16" fill="${baseColor}" stroke="${borderColor}" stroke-width="${borderWidth}" filter="url(#shadow)"/>
       <path d="${iconPath}" fill="white" opacity="0.9" transform="scale(0.6) translate(13, 13)"/>
-      ${isPlannedStop ? `<circle cx="32" cy="8" r="8" fill="#10B981" stroke="white" stroke-width="2"/><text x="32" y="12" text-anchor="middle" fill="white" font-size="10" font-weight="bold">${stopNumber}</text>` : ''}
+      ${isPlannedStop ? `<circle cx="32" cy="8" r="8" fill="#10B981" stroke="white" stroke-width="2"/><text x="32" y="12" text-anchor="middle" fill="white" font-size="10" font-weight="bold">${stopNumber}</text>` : rankingBadge}
       ${!isActive ? `<line x1="8" y1="8" x2="32" y2="32" stroke="#EF4444" stroke-width="3"/>` : ''}
       <rect x="5" y="42" width="30" height="14" rx="3" fill="#0F172A"/>
       <text x="20" y="52" text-anchor="middle" fill="${isActive ? baseColor : '#64748B'}" font-size="9" font-weight="bold" font-family="monospace">R$${station.diesel_price?.toFixed(2) || '0.00'}</text>
@@ -267,6 +301,63 @@ export default function MapView({
     });
     return stopMap;
   }, [fuelPlan]);
+
+  // Calculate price rankings by state (best 3 and worst 3)
+  const priceRankings = useMemo(() => {
+    const rankings = new Map();
+    
+    // Group active stations by state (extracted from city field)
+    const stationsByState = new Map();
+    stations.forEach(station => {
+      if (station.is_active === false) return;
+      if (!station.diesel_price) return;
+      
+      // Extract state from city field (e.g., "Curitiba-PR" -> "PR")
+      let state = "UNKNOWN";
+      if (station.city) {
+        const match = station.city.match(/-([A-Z]{2})$/);
+        if (match) {
+          state = match[1];
+        } else {
+          // Try to extract from full city name
+          const parts = station.city.split(/[-,]/);
+          if (parts.length > 1) {
+            state = parts[parts.length - 1].trim().toUpperCase();
+          }
+        }
+      }
+      
+      if (!stationsByState.has(state)) {
+        stationsByState.set(state, []);
+      }
+      stationsByState.get(state).push(station);
+    });
+    
+    // For each state, find best 3 and worst 3 prices
+    stationsByState.forEach((stateStations, state) => {
+      if (stateStations.length < 2) return; // Need at least 2 stations to compare
+      
+      // Sort by price ascending
+      const sorted = [...stateStations].sort((a, b) => a.diesel_price - b.diesel_price);
+      
+      // Mark best 3 (lowest prices)
+      const bestCount = Math.min(3, Math.floor(sorted.length / 2));
+      for (let i = 0; i < bestCount; i++) {
+        rankings.set(sorted[i].id, "best");
+      }
+      
+      // Mark worst 3 (highest prices)
+      const worstCount = Math.min(3, Math.floor(sorted.length / 2));
+      for (let i = 0; i < worstCount; i++) {
+        const worstIndex = sorted.length - 1 - i;
+        if (!rankings.has(sorted[worstIndex].id)) { // Don't overwrite if already marked as best
+          rankings.set(sorted[worstIndex].id, "worst");
+        }
+      }
+    });
+    
+    return rankings;
+  }, [stations]);
 
   // Fit bounds when route changes
   useEffect(() => {
@@ -490,13 +581,14 @@ export default function MapView({
         {stations.map((station) => {
           const stopNumber = plannedStopIds.get(station.id);
           const isPlannedStop = !!stopNumber;
+          const priceRanking = priceRankings.get(station.id);
           
           return (
             <Marker
               key={station.id}
               position={{ lat: station.latitude, lng: station.longitude }}
               icon={{
-                url: createStationMarkerIcon(station, isPlannedStop, stopNumber),
+                url: createStationMarkerIcon(station, isPlannedStop, stopNumber, priceRanking),
                 scaledSize: new window.google.maps.Size(40, 56),
                 anchor: new window.google.maps.Point(20, 50),
               }}
@@ -510,8 +602,14 @@ export default function MapView({
                   <div className="p-2 min-w-[180px]">
                     <div className="font-medium text-sm text-gray-900">{station.name}</div>
                     {station.city && <div className="text-xs text-gray-500">{station.city}</div>}
-                    <div className="text-orange-600 font-mono font-bold text-lg mt-1">
+                    <div className={`font-mono font-bold text-lg mt-1 ${
+                      priceRanking === "best" ? "text-green-600" : 
+                      priceRanking === "worst" ? "text-red-600" : 
+                      "text-orange-600"
+                    }`}>
                       R$ {station.diesel_price?.toFixed(2)}/L
+                      {priceRanking === "best" && <span className="text-xs ml-1 font-normal">★ Melhor preço</span>}
+                      {priceRanking === "worst" && <span className="text-xs ml-1 font-normal">⚠ Preço alto</span>}
                     </div>
                     {!station.is_active && (
                       <div className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded mt-1 inline-block">
