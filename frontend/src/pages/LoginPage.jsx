@@ -44,20 +44,20 @@ export default function LoginPage({ onLogin }) {
   };
 
   return (
-    <div className="min-h-screen flex relative overflow-hidden">
+    <div className="min-h-screen relative">
       {/* Full Background Image */}
       <div 
         className="absolute inset-0 bg-cover bg-center bg-no-repeat"
         style={{ backgroundImage: 'url(/login-bg.png)' }}
       />
+      
+      {/* Dark overlay to obscure the original form in the image */}
+      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-black/40 to-black/95 lg:to-black/90" />
 
-      {/* Left Side - Just the background, no extra content since image already has branding */}
-      <div className="hidden lg:flex lg:w-1/2 relative z-10" />
-
-      {/* Right Side - Login Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center relative z-10">
-        {/* Mobile: Semi-transparent overlay for better form visibility */}
-        <div className="lg:hidden absolute inset-0 bg-slate-900/70 backdrop-blur-sm" />
+      {/* Content Container */}
+      <div className="relative z-10 min-h-screen flex items-center justify-end">
+        {/* Mobile: Centered form with overlay */}
+        <div className="lg:hidden absolute inset-0 bg-slate-950/85 backdrop-blur-sm" />
         
         {/* Mobile Logo */}
         <div className="lg:hidden absolute top-8 left-1/2 -translate-x-1/2 z-20">
@@ -68,15 +68,19 @@ export default function LoginPage({ onLogin }) {
           />
         </div>
 
-        {/* Glass Card Form */}
-        <div className="w-full max-w-md mx-4 lg:mx-8 relative z-10">
-          <div className="bg-slate-900/85 backdrop-blur-xl rounded-3xl p-8 lg:p-10 shadow-2xl border border-white/10">
-            {/* Welcome Text */}
-            <div className="mb-8">
-              <h1 className="text-3xl font-bold text-white mb-2">
+        {/* Form Panel - Right side */}
+        <div className="w-full lg:w-[38%] xl:w-[35%] min-h-screen flex items-center justify-center bg-slate-950/95 lg:bg-slate-950 backdrop-blur-md lg:backdrop-blur-none">
+          {/* Decorative vertical line on desktop */}
+          <div className="hidden lg:block absolute left-0 top-1/4 bottom-1/4 w-px bg-gradient-to-b from-transparent via-emerald-500/40 to-transparent" />
+          
+          {/* Form Container */}
+          <div className="w-full max-w-sm px-8 py-12">
+            {/* Welcome Header */}
+            <div className="mb-10">
+              <h2 className="text-3xl font-bold text-white mb-2">
                 Bem-vindo
-              </h1>
-              <p className="text-gray-400">
+              </h2>
+              <p className="text-gray-400 text-sm">
                 Entre com suas credenciais para acessar o sistema
               </p>
             </div>
@@ -93,7 +97,7 @@ export default function LoginPage({ onLogin }) {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="Digite seu usuário"
-                  className="h-14 bg-slate-800/60 border-slate-600/50 text-white placeholder:text-gray-500 rounded-xl focus:border-emerald-500 focus:ring-emerald-500/20 transition-all"
+                  className="h-12 bg-slate-900/80 border-slate-700 text-white placeholder:text-gray-500 rounded-lg focus:border-emerald-500 focus:ring-emerald-500/20"
                   autoComplete="username"
                 />
               </div>
@@ -109,15 +113,15 @@ export default function LoginPage({ onLogin }) {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Digite sua senha"
-                    className="h-14 bg-slate-800/60 border-slate-600/50 text-white placeholder:text-gray-500 rounded-xl pr-12 focus:border-emerald-500 focus:ring-emerald-500/20 transition-all"
+                    className="h-12 bg-slate-900/80 border-slate-700 text-white placeholder:text-gray-500 rounded-lg pr-12 focus:border-emerald-500 focus:ring-emerald-500/20"
                     autoComplete="current-password"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
                   >
-                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
               </div>
@@ -126,7 +130,7 @@ export default function LoginPage({ onLogin }) {
                 data-testid="btn-login"
                 type="submit"
                 disabled={isLoading}
-                className="w-full h-14 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white font-semibold text-base rounded-xl shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 transition-all duration-300 mt-2"
+                className="w-full h-12 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg shadow-lg shadow-emerald-600/20 hover:shadow-emerald-500/30 transition-all duration-300"
               >
                 {isLoading ? (
                   <>
@@ -135,22 +139,24 @@ export default function LoginPage({ onLogin }) {
                   </>
                 ) : (
                   <>
-                    <LogIn className="w-5 h-5 mr-2" />
                     Entrar
+                    <LogIn className="w-5 h-5 ml-2" />
                   </>
                 )}
               </Button>
             </form>
 
-            {/* Footer */}
-            <div className="mt-8 flex items-center justify-between">
-              <p className="text-sm text-gray-500">
-                Sessão válida até meia-noite
-              </p>
+            {/* Session Info */}
+            <p className="mt-6 text-center text-sm text-gray-500">
+              Sessão válida até meia-noite
+            </p>
+
+            {/* Bartz Logo at bottom */}
+            <div className="mt-12 flex justify-center">
               <img 
                 src="/bartz-logo.png" 
                 alt="Bartz" 
-                className="h-8 w-auto object-contain opacity-70"
+                className="h-10 w-auto object-contain opacity-50"
               />
             </div>
           </div>
