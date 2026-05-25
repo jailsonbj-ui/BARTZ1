@@ -3,19 +3,13 @@ import mapboxgl from "mapbox-gl";
 import MapboxGeocoder from "@mapbox/mapbox-gl-geocoder";
 import "mapbox-gl/dist/mapbox-gl.css";
 import "@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css";
-import { Fuel, MapPin, AlertTriangle, Star, Loader2, Plus, X, Layers, Map as MapIcon, Globe, Car, Search, Copy } from "lucide-react";
+import { Plus, X, Layers, Map as MapIcon, Globe, Car, MapPin, AlertTriangle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const MAPBOX_TOKEN = process.env.REACT_APP_MAPBOX_TOKEN;
 
 // Set Mapbox access token
 mapboxgl.accessToken = MAPBOX_TOKEN;
-
-const getOverallRating = (ratings) => {
-  if (!ratings) return 0;
-  const { price_rating = 0, service_rating = 0, parking_rating = 0, security_rating = 0 } = ratings;
-  return ((price_rating + service_rating + parking_rating + security_rating) / 4).toFixed(1);
-};
 
 // Station icon types and colors
 const STATION_ICONS = {
@@ -60,6 +54,22 @@ const PRICE_RANKING_COLORS = {
 
 // Export for use in ControlPanel
 export { STATION_ICONS, STATION_COLORS };
+
+// Utility: Escape HTML to prevent XSS
+const escapeHtml = (text) => {
+  if (text === null || text === undefined) return '';
+  const str = String(text);
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+};
+
+// Utility: Sanitize number for display
+const sanitizeNumber = (num, decimals = 2) => {
+  const parsed = parseFloat(num);
+  if (isNaN(parsed)) return '0.00';
+  return parsed.toFixed(decimals);
+};
 
 export default function MapView({
   stations,
@@ -146,80 +156,377 @@ export default function MapView({
   }, [stations]);
 
   // Get marker color based on station state
-  const getMarkerColor = (station, isPlannedStop, priceRanking) => {
+  const getMarkerColor = useCallback((station, isPlannedStop, priceRanking) => {
     if (isPlannedStop) return "#10B981";
     if (station.is_active === false) return "#64748B";
     if (priceRanking === "best") return PRICE_RANKING_COLORS.best;
     if (priceRanking === "worst") return PRICE_RANKING_COLORS.worst;
     return STATION_COLORS[station.marker_color]?.hex || "#F97316";
-  };
+  }, []);
 
-  // Create HTML for station marker
-  const createStationMarkerElement = (station, isPlannedStop, stopNumber, priceRanking) => {
+  // Create station marker element using DOM APIs (XSS-safe)
+  const createStationMarkerElement = useCallback((station, isPlannedStop, stopNumber, priceRanking) => {
     const color = getMarkerColor(station, isPlannedStop, priceRanking);
     const isActive = station.is_active !== false;
     const opacity = isActive ? 1 : 0.6;
     
     const el = document.createElement('div');
     el.className = 'station-marker';
-    el.style.cssText = `
-      width: 40px;
-      height: 56px;
-      cursor: pointer;
-      opacity: ${opacity};
-    `;
+    el.style.cssText = `width: 40px; height: 56px; cursor: pointer; opacity: ${opacity};`;
     
-    const badge = isPlannedStop 
-      ? `<circle cx="32" cy="8" r="8" fill="#10B981" stroke="white" stroke-width="2"/><text x="32" y="12" text-anchor="middle" fill="white" font-size="10" font-weight="bold">${stopNumber}</text>`
-      : priceRanking === "best"
-      ? `<circle cx="32" cy="8" r="8" fill="#10B981" stroke="white" stroke-width="2"/><text x="32" y="12" text-anchor="middle" fill="white" font-size="10" font-weight="bold">★</text>`
-      : priceRanking === "worst"
-      ? `<circle cx="32" cy="8" r="8" fill="#EF4444" stroke="white" stroke-width="2"/><text x="32" y="12" text-anchor="middle" fill="white" font-size="10" font-weight="bold">!</text>`
-      : '';
+    // Create SVG using DOM APIs (XSS-safe)
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("width", "40");
+    svg.setAttribute("height", "56");
+    svg.setAttribute("viewBox", "0 0 40 56");
     
+    // Defs for shadow
+    const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+    const filter = document.createElementNS("http://www.w3.org/2000/svg", "filter");
+    filter.setAttribute("id", `shadow-${escapeHtml(station.id)}`);
+    filter.setAttribute("x", "-50%");
+    filter.setAttribute("y", "-50%");
+    filter.setAttribute("width", "200%");
+    filter.setAttribute("height", "200%");
+    
+    const feDropShadow = document.createElementNS("http://www.w3.org/2000/svg", "feDropShadow");
+    feDropShadow.setAttribute("dx", "0");
+    feDropShadow.setAttribute("dy", "2");
+    feDropShadow.setAttribute("stdDeviation", "2");
+    feDropShadow.setAttribute("flood-color", "#000");
+    feDropShadow.setAttribute("flood-opacity", "0.3");
+    filter.appendChild(feDropShadow);
+    defs.appendChild(filter);
+    svg.appendChild(defs);
+    
+    // Main circle
     const borderColor = priceRanking === "best" ? "#065F46" : priceRanking === "worst" ? "#7F1D1D" : "white";
     const borderWidth = priceRanking ? 4 : 3;
     
-    el.innerHTML = `
-      <svg xmlns="http://www.w3.org/2000/svg" width="40" height="56" viewBox="0 0 40 56">
-        <defs>
-          <filter id="shadow-${station.id}" x="-50%" y="-50%" width="200%" height="200%">
-            <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000" flood-opacity="0.3"/>
-          </filter>
-        </defs>
-        <circle cx="20" cy="20" r="16" fill="${color}" stroke="${borderColor}" stroke-width="${borderWidth}" filter="url(#shadow-${station.id})"/>
-        ${badge}
-        ${!isActive ? `<line x1="8" y1="8" x2="32" y2="32" stroke="#EF4444" stroke-width="3"/>` : ''}
-        <rect x="5" y="42" width="30" height="14" rx="3" fill="#0F172A"/>
-        <text x="20" y="52" text-anchor="middle" fill="${isActive ? color : '#64748B'}" font-size="9" font-weight="bold" font-family="monospace">R$${station.diesel_price?.toFixed(2) || '0.00'}</text>
-      </svg>
-    `;
+    const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    circle.setAttribute("cx", "20");
+    circle.setAttribute("cy", "20");
+    circle.setAttribute("r", "16");
+    circle.setAttribute("fill", color);
+    circle.setAttribute("stroke", borderColor);
+    circle.setAttribute("stroke-width", String(borderWidth));
+    circle.setAttribute("filter", `url(#shadow-${escapeHtml(station.id)})`);
+    svg.appendChild(circle);
     
+    // Badge for planned stop or price ranking
+    if (isPlannedStop) {
+      const badgeCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      badgeCircle.setAttribute("cx", "32");
+      badgeCircle.setAttribute("cy", "8");
+      badgeCircle.setAttribute("r", "8");
+      badgeCircle.setAttribute("fill", "#10B981");
+      badgeCircle.setAttribute("stroke", "white");
+      badgeCircle.setAttribute("stroke-width", "2");
+      svg.appendChild(badgeCircle);
+      
+      const badgeText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      badgeText.setAttribute("x", "32");
+      badgeText.setAttribute("y", "12");
+      badgeText.setAttribute("text-anchor", "middle");
+      badgeText.setAttribute("fill", "white");
+      badgeText.setAttribute("font-size", "10");
+      badgeText.setAttribute("font-weight", "bold");
+      badgeText.textContent = String(stopNumber);
+      svg.appendChild(badgeText);
+    } else if (priceRanking === "best") {
+      const badgeCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      badgeCircle.setAttribute("cx", "32");
+      badgeCircle.setAttribute("cy", "8");
+      badgeCircle.setAttribute("r", "8");
+      badgeCircle.setAttribute("fill", "#10B981");
+      badgeCircle.setAttribute("stroke", "white");
+      badgeCircle.setAttribute("stroke-width", "2");
+      svg.appendChild(badgeCircle);
+      
+      const badgeText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      badgeText.setAttribute("x", "32");
+      badgeText.setAttribute("y", "12");
+      badgeText.setAttribute("text-anchor", "middle");
+      badgeText.setAttribute("fill", "white");
+      badgeText.setAttribute("font-size", "10");
+      badgeText.setAttribute("font-weight", "bold");
+      badgeText.textContent = "★";
+      svg.appendChild(badgeText);
+    } else if (priceRanking === "worst") {
+      const badgeCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      badgeCircle.setAttribute("cx", "32");
+      badgeCircle.setAttribute("cy", "8");
+      badgeCircle.setAttribute("r", "8");
+      badgeCircle.setAttribute("fill", "#EF4444");
+      badgeCircle.setAttribute("stroke", "white");
+      badgeCircle.setAttribute("stroke-width", "2");
+      svg.appendChild(badgeCircle);
+      
+      const badgeText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      badgeText.setAttribute("x", "32");
+      badgeText.setAttribute("y", "12");
+      badgeText.setAttribute("text-anchor", "middle");
+      badgeText.setAttribute("fill", "white");
+      badgeText.setAttribute("font-size", "10");
+      badgeText.setAttribute("font-weight", "bold");
+      badgeText.textContent = "!";
+      svg.appendChild(badgeText);
+    }
+    
+    // Inactive line
+    if (!isActive) {
+      const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      line.setAttribute("x1", "8");
+      line.setAttribute("y1", "8");
+      line.setAttribute("x2", "32");
+      line.setAttribute("y2", "32");
+      line.setAttribute("stroke", "#EF4444");
+      line.setAttribute("stroke-width", "3");
+      svg.appendChild(line);
+    }
+    
+    // Price background rect
+    const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    rect.setAttribute("x", "5");
+    rect.setAttribute("y", "42");
+    rect.setAttribute("width", "30");
+    rect.setAttribute("height", "14");
+    rect.setAttribute("rx", "3");
+    rect.setAttribute("fill", "#0F172A");
+    svg.appendChild(rect);
+    
+    // Price text
+    const priceText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    priceText.setAttribute("x", "20");
+    priceText.setAttribute("y", "52");
+    priceText.setAttribute("text-anchor", "middle");
+    priceText.setAttribute("fill", isActive ? color : '#64748B');
+    priceText.setAttribute("font-size", "9");
+    priceText.setAttribute("font-weight", "bold");
+    priceText.setAttribute("font-family", "monospace");
+    priceText.textContent = `R$${sanitizeNumber(station.diesel_price)}`;
+    svg.appendChild(priceText);
+    
+    el.appendChild(svg);
     return el;
-  };
+  }, [getMarkerColor]);
 
-  // Create popup content for station
-  const createStationPopupContent = (station, isPlannedStop, stopNumber, priceRanking) => {
-    const priceClass = priceRanking === "best" ? "color: #10B981;" : priceRanking === "worst" ? "color: #EF4444;" : "color: #F97316;";
-    const priceLabel = priceRanking === "best" ? " ★ Melhor preço" : priceRanking === "worst" ? " ⚠ Preço alto" : "";
+  // Create popup content element (XSS-safe using DOM APIs)
+  const createStationPopupElement = useCallback((station, isPlannedStop, stopNumber, priceRanking) => {
+    const container = document.createElement('div');
+    container.style.cssText = 'padding: 8px; min-width: 180px; font-family: system-ui, sans-serif;';
     
-    return `
-      <div style="padding: 8px; min-width: 180px; font-family: system-ui, sans-serif;">
-        <div style="font-weight: 600; font-size: 14px; color: #1f2937;">${station.name}</div>
-        ${station.city ? `<div style="font-size: 12px; color: #6b7280;">${station.city}</div>` : ''}
-        <div style="font-family: monospace; font-weight: 700; font-size: 18px; margin-top: 4px; ${priceClass}">
-          R$ ${station.diesel_price?.toFixed(2)}/L
-          <span style="font-size: 11px; font-weight: 400;">${priceLabel}</span>
-        </div>
-        ${!station.is_active ? '<div style="font-size: 11px; background: #fee2e2; color: #dc2626; padding: 2px 8px; border-radius: 4px; margin-top: 4px; display: inline-block;">INATIVO</div>' : ''}
-        ${isPlannedStop ? `<div style="margin-top: 8px; font-size: 11px; background: #d1fae5; color: #059669; padding: 4px 8px; border-radius: 4px; display: inline-block;">Parada #${stopNumber} do plano</div>` : ''}
-        <button onclick="navigator.clipboard.writeText('https://www.google.com/maps/search/?api=1&query=${station.latitude},${station.longitude}').then(() => alert('Link copiado!'))" 
-          style="margin-top: 8px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 4px; background: #3b82f6; color: white; font-size: 11px; padding: 6px 8px; border-radius: 4px; border: none; cursor: pointer;">
-          📋 Copiar Link Google Maps
-        </button>
-      </div>
-    `;
-  };
+    // Station name
+    const nameDiv = document.createElement('div');
+    nameDiv.style.cssText = 'font-weight: 600; font-size: 14px; color: #1f2937;';
+    nameDiv.textContent = station.name || 'Posto sem nome';
+    container.appendChild(nameDiv);
+    
+    // City
+    if (station.city) {
+      const cityDiv = document.createElement('div');
+      cityDiv.style.cssText = 'font-size: 12px; color: #6b7280;';
+      cityDiv.textContent = station.city;
+      container.appendChild(cityDiv);
+    }
+    
+    // Price
+    const priceColor = priceRanking === "best" ? "#10B981" : priceRanking === "worst" ? "#EF4444" : "#F97316";
+    const priceDiv = document.createElement('div');
+    priceDiv.style.cssText = `font-family: monospace; font-weight: 700; font-size: 18px; margin-top: 4px; color: ${priceColor};`;
+    
+    const priceSpan = document.createElement('span');
+    priceSpan.textContent = `R$ ${sanitizeNumber(station.diesel_price)}/L`;
+    priceDiv.appendChild(priceSpan);
+    
+    if (priceRanking === "best") {
+      const labelSpan = document.createElement('span');
+      labelSpan.style.cssText = 'font-size: 11px; font-weight: 400; margin-left: 4px;';
+      labelSpan.textContent = '★ Melhor preço';
+      priceDiv.appendChild(labelSpan);
+    } else if (priceRanking === "worst") {
+      const labelSpan = document.createElement('span');
+      labelSpan.style.cssText = 'font-size: 11px; font-weight: 400; margin-left: 4px;';
+      labelSpan.textContent = '⚠ Preço alto';
+      priceDiv.appendChild(labelSpan);
+    }
+    container.appendChild(priceDiv);
+    
+    // Inactive badge
+    if (!station.is_active) {
+      const inactiveDiv = document.createElement('div');
+      inactiveDiv.style.cssText = 'font-size: 11px; background: #fee2e2; color: #dc2626; padding: 2px 8px; border-radius: 4px; margin-top: 4px; display: inline-block;';
+      inactiveDiv.textContent = 'INATIVO';
+      container.appendChild(inactiveDiv);
+    }
+    
+    // Planned stop badge
+    if (isPlannedStop) {
+      const plannedDiv = document.createElement('div');
+      plannedDiv.style.cssText = 'margin-top: 8px; font-size: 11px; background: #d1fae5; color: #059669; padding: 4px 8px; border-radius: 4px; display: inline-block;';
+      plannedDiv.textContent = `Parada #${stopNumber} do plano`;
+      container.appendChild(plannedDiv);
+    }
+    
+    // Copy button
+    const copyBtn = document.createElement('button');
+    copyBtn.style.cssText = 'margin-top: 8px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 4px; background: #3b82f6; color: white; font-size: 11px; padding: 6px 8px; border-radius: 4px; border: none; cursor: pointer;';
+    copyBtn.textContent = '📋 Copiar Link Google Maps';
+    copyBtn.addEventListener('click', () => {
+      const lat = sanitizeNumber(station.latitude, 6);
+      const lng = sanitizeNumber(station.longitude, 6);
+      const mapsLink = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+      navigator.clipboard.writeText(mapsLink).then(() => {
+        alert('Link copiado!');
+      });
+    });
+    container.appendChild(copyBtn);
+    
+    return container;
+  }, []);
+
+  // Create search marker popup element (XSS-safe)
+  const createSearchPopupElement = useCallback((marker, onCreateClick) => {
+    const container = document.createElement('div');
+    container.style.cssText = 'padding: 8px; font-family: system-ui, sans-serif;';
+    
+    const nameDiv = document.createElement('div');
+    nameDiv.style.cssText = 'font-weight: 600; font-size: 14px; color: #1f2937;';
+    nameDiv.textContent = marker.name || 'Local selecionado';
+    container.appendChild(nameDiv);
+    
+    const coordsDiv = document.createElement('div');
+    coordsDiv.style.cssText = 'font-size: 11px; color: #6b7280; margin-top: 4px;';
+    coordsDiv.textContent = `${sanitizeNumber(marker.lat, 6)}, ${sanitizeNumber(marker.lng, 6)}`;
+    container.appendChild(coordsDiv);
+    
+    const createBtn = document.createElement('button');
+    createBtn.style.cssText = 'margin-top: 8px; width: 100%; background: #10B981; color: white; font-size: 12px; padding: 8px; border-radius: 6px; border: none; cursor: pointer; font-weight: 600;';
+    createBtn.textContent = '+ Criar Posto Aqui';
+    createBtn.addEventListener('click', onCreateClick);
+    container.appendChild(createBtn);
+    
+    return container;
+  }, []);
+
+  // Create route point marker element (XSS-safe)
+  const createRoutePointElement = useCallback((type) => {
+    const colors = {
+      origin: "#10B981",
+      destination: "#EF4444",
+      waypoint: "#3B82F6",
+    };
+    
+    const el = document.createElement('div');
+    el.style.cursor = 'pointer';
+    
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("width", "32");
+    svg.setAttribute("height", "32");
+    svg.setAttribute("viewBox", "0 0 32 32");
+    
+    const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    circle.setAttribute("cx", "16");
+    circle.setAttribute("cy", "16");
+    circle.setAttribute("r", "14");
+    circle.setAttribute("fill", colors[type] || colors.waypoint);
+    circle.setAttribute("stroke", "white");
+    circle.setAttribute("stroke-width", "2");
+    svg.appendChild(circle);
+    
+    if (type === 'origin') {
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      path.setAttribute("d", "M16 8l6 10h-12z");
+      path.setAttribute("fill", "white");
+      svg.appendChild(path);
+    } else if (type === 'destination') {
+      const innerCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      innerCircle.setAttribute("cx", "16");
+      innerCircle.setAttribute("cy", "16");
+      innerCircle.setAttribute("r", "5");
+      innerCircle.setAttribute("fill", "white");
+      svg.appendChild(innerCircle);
+    } else {
+      const innerCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      innerCircle.setAttribute("cx", "16");
+      innerCircle.setAttribute("cy", "16");
+      innerCircle.setAttribute("r", "4");
+      innerCircle.setAttribute("fill", "white");
+      svg.appendChild(innerCircle);
+    }
+    
+    el.appendChild(svg);
+    return el;
+  }, []);
+
+  // Create new station marker element (XSS-safe)
+  const createNewStationMarkerElement = useCallback(() => {
+    const el = document.createElement('div');
+    
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("width", "40");
+    svg.setAttribute("height", "40");
+    svg.setAttribute("viewBox", "0 0 40 40");
+    
+    const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    circle.setAttribute("cx", "20");
+    circle.setAttribute("cy", "20");
+    circle.setAttribute("r", "18");
+    circle.setAttribute("fill", "#10B981");
+    circle.setAttribute("stroke", "white");
+    circle.setAttribute("stroke-width", "3");
+    circle.setAttribute("stroke-dasharray", "5,3");
+    svg.appendChild(circle);
+    
+    const vLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    vLine.setAttribute("x1", "20");
+    vLine.setAttribute("y1", "10");
+    vLine.setAttribute("x2", "20");
+    vLine.setAttribute("y2", "30");
+    vLine.setAttribute("stroke", "white");
+    vLine.setAttribute("stroke-width", "3");
+    svg.appendChild(vLine);
+    
+    const hLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    hLine.setAttribute("x1", "10");
+    hLine.setAttribute("y1", "20");
+    hLine.setAttribute("x2", "30");
+    hLine.setAttribute("y2", "20");
+    hLine.setAttribute("stroke", "white");
+    hLine.setAttribute("stroke-width", "3");
+    svg.appendChild(hLine);
+    
+    el.appendChild(svg);
+    return el;
+  }, []);
+
+  // Create search result marker element (XSS-safe)
+  const createSearchMarkerElement = useCallback(() => {
+    const el = document.createElement('div');
+    el.style.cursor = 'pointer';
+    
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("width", "40");
+    svg.setAttribute("height", "50");
+    svg.setAttribute("viewBox", "0 0 40 50");
+    
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", "M20 0 C9 0 0 9 0 20 C0 35 20 50 20 50 C20 50 40 35 40 20 C40 9 31 0 20 0 Z");
+    path.setAttribute("fill", "#EF4444");
+    path.setAttribute("stroke", "white");
+    path.setAttribute("stroke-width", "2");
+    svg.appendChild(path);
+    
+    const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    circle.setAttribute("cx", "20");
+    circle.setAttribute("cy", "18");
+    circle.setAttribute("r", "8");
+    circle.setAttribute("fill", "white");
+    svg.appendChild(circle);
+    
+    el.appendChild(svg);
+    return el;
+  }, []);
 
   // Initialize map
   useEffect(() => {
@@ -288,7 +595,7 @@ export default function MapView({
       map.remove();
       mapRef.current = null;
     };
-  }, []);
+  }, [isCreatingStation, mapType]);
 
   // Update map style when mapType changes
   useEffect(() => {
@@ -309,7 +616,7 @@ export default function MapView({
     
     const map = mapRef.current;
     
-    map.on('style.load', () => {
+    const handleStyleLoad = () => {
       if (showTraffic) {
         if (!map.getSource('mapbox-traffic')) {
           map.addSource('mapbox-traffic', {
@@ -343,7 +650,13 @@ export default function MapView({
           map.removeLayer('traffic-layer');
         }
       }
-    });
+    };
+    
+    map.on('style.load', handleStyleLoad);
+    
+    return () => {
+      map.off('style.load', handleStyleLoad);
+    };
   }, [showTraffic, mapLoaded]);
 
   // Update route on map
@@ -352,7 +665,6 @@ export default function MapView({
     
     const map = mapRef.current;
     
-    // Wait for style to be loaded
     const updateRoute = () => {
       // Remove existing route
       if (map.getLayer('route-line')) {
@@ -438,13 +750,15 @@ export default function MapView({
           popupRef.current.remove();
         }
 
+        const popupContent = createStationPopupElement(station, isPlannedStop, stopNumber, priceRanking);
+        
         const popup = new mapboxgl.Popup({
           closeButton: true,
           closeOnClick: true,
           maxWidth: '300px',
         })
           .setLngLat([station.longitude, station.latitude])
-          .setHTML(createStationPopupContent(station, isPlannedStop, stopNumber, priceRanking))
+          .setDOMContent(popupContent)
           .addTo(map);
 
         popupRef.current = popup;
@@ -453,7 +767,7 @@ export default function MapView({
 
       markersRef.current[station.id] = marker;
     });
-  }, [stations, plannedStopIds, priceRankings, mapLoaded, setSelectedStation]);
+  }, [stations, plannedStopIds, priceRankings, mapLoaded, setSelectedStation, createStationMarkerElement, createStationPopupElement]);
 
   // Add route point markers
   useEffect(() => {
@@ -463,28 +777,13 @@ export default function MapView({
     
     routeData.route_points.forEach((point, index) => {
       const type = index === 0 ? "origin" : index === routeData.route_points.length - 1 ? "destination" : "waypoint";
-      const colors = {
-        origin: "#10B981",
-        destination: "#EF4444",
-        waypoint: "#3B82F6",
-      };
-      
-      const el = document.createElement('div');
-      el.innerHTML = `
-        <svg width="32" height="32" viewBox="0 0 32 32">
-          <circle cx="16" cy="16" r="14" fill="${colors[type]}" stroke="white" stroke-width="2"/>
-          ${type === 'origin' ? '<path d="M16 8l6 10h-12z" fill="white"/>' : ''}
-          ${type === 'destination' ? '<circle cx="16" cy="16" r="5" fill="white"/>' : ''}
-          ${type === 'waypoint' ? '<circle cx="16" cy="16" r="4" fill="white"/>' : ''}
-        </svg>
-      `;
-      el.style.cursor = 'pointer';
+      const el = createRoutePointElement(type);
 
       new mapboxgl.Marker({ element: el })
         .setLngLat([point.lng, point.lat])
         .addTo(map);
     });
-  }, [routeData, mapLoaded]);
+  }, [routeData, mapLoaded, createRoutePointElement]);
 
   // Search marker
   useEffect(() => {
@@ -499,14 +798,7 @@ export default function MapView({
     }
 
     if (searchMarker) {
-      const el = document.createElement('div');
-      el.innerHTML = `
-        <svg width="40" height="50" viewBox="0 0 40 50">
-          <path d="M20 0 C9 0 0 9 0 20 C0 35 20 50 20 50 C20 50 40 35 40 20 C40 9 31 0 20 0 Z" fill="#EF4444" stroke="white" stroke-width="2"/>
-          <circle cx="20" cy="18" r="8" fill="white"/>
-        </svg>
-      `;
-      el.style.cursor = 'pointer';
+      const el = createSearchMarkerElement();
 
       const marker = new mapboxgl.Marker({ element: el })
         .setLngLat([searchMarker.lng, searchMarker.lat])
@@ -516,38 +808,22 @@ export default function MapView({
       el.addEventListener('click', () => {
         if (popupRef.current) popupRef.current.remove();
         
+        const popupContent = createSearchPopupElement(searchMarker, () => {
+          setNewStationPosition({
+            lat: searchMarker.lat,
+            lng: searchMarker.lng,
+            suggestedName: searchMarker.placeName || "",
+            suggestedCity: searchMarker.city || "",
+          });
+          if (popupRef.current) popupRef.current.remove();
+        });
+        
         const popup = new mapboxgl.Popup({ closeButton: true, maxWidth: '280px' })
           .setLngLat([searchMarker.lng, searchMarker.lat])
-          .setHTML(`
-            <div style="padding: 8px; font-family: system-ui, sans-serif;">
-              <div style="font-weight: 600; font-size: 14px; color: #1f2937;">${searchMarker.name}</div>
-              <div style="font-size: 11px; color: #6b7280; margin-top: 4px;">
-                ${searchMarker.lat.toFixed(6)}, ${searchMarker.lng.toFixed(6)}
-              </div>
-              <button id="create-station-btn" style="margin-top: 8px; width: 100%; background: #10B981; color: white; font-size: 12px; padding: 8px; border-radius: 6px; border: none; cursor: pointer; font-weight: 600;">
-                + Criar Posto Aqui
-              </button>
-            </div>
-          `)
+          .setDOMContent(popupContent)
           .addTo(map);
 
         popupRef.current = popup;
-        
-        // Add click handler for create station button
-        setTimeout(() => {
-          const btn = document.getElementById('create-station-btn');
-          if (btn) {
-            btn.addEventListener('click', () => {
-              setNewStationPosition({
-                lat: searchMarker.lat,
-                lng: searchMarker.lng,
-                suggestedName: searchMarker.placeName || "",
-                suggestedCity: searchMarker.city || "",
-              });
-              popup.remove();
-            });
-          }
-        }, 100);
       });
 
       markersRef.current['search-marker'] = marker;
@@ -557,7 +833,7 @@ export default function MapView({
         zoom: 14,
       });
     }
-  }, [searchMarker, mapLoaded]);
+  }, [searchMarker, mapLoaded, createSearchMarkerElement, createSearchPopupElement]);
 
   // Handle new station position
   useEffect(() => {
@@ -572,14 +848,7 @@ export default function MapView({
     }
 
     if (newStationPosition) {
-      const el = document.createElement('div');
-      el.innerHTML = `
-        <svg width="40" height="40" viewBox="0 0 40 40">
-          <circle cx="20" cy="20" r="18" fill="#10B981" stroke="white" stroke-width="3" stroke-dasharray="5,3"/>
-          <line x1="20" y1="10" x2="20" y2="30" stroke="white" stroke-width="3"/>
-          <line x1="10" y1="20" x2="30" y2="20" stroke="white" stroke-width="3"/>
-        </svg>
-      `;
+      const el = createNewStationMarkerElement();
 
       const marker = new mapboxgl.Marker({ element: el, draggable: true })
         .setLngLat([newStationPosition.lng, newStationPosition.lat])
@@ -596,9 +865,9 @@ export default function MapView({
 
       markersRef.current['new-station'] = marker;
     }
-  }, [newStationPosition, mapLoaded]);
+  }, [newStationPosition, mapLoaded, createNewStationMarkerElement]);
 
-  const handleConfirmNewStation = () => {
+  const handleConfirmNewStation = useCallback(() => {
     if (newStationPosition && onCreateStation) {
       onCreateStation(newStationPosition);
       setIsCreatingStation(false);
@@ -608,12 +877,12 @@ export default function MapView({
         geocoderRef.current.clear();
       }
     }
-  };
+  }, [newStationPosition, onCreateStation]);
 
-  const handleCancelCreation = () => {
+  const handleCancelCreation = useCallback(() => {
     setIsCreatingStation(false);
     setNewStationPosition(null);
-  };
+  }, []);
 
   if (!MAPBOX_TOKEN) {
     return (
@@ -711,10 +980,10 @@ export default function MapView({
           <div className="text-center mb-3">
             <p className="text-white font-medium">Criar posto nesta localização?</p>
             <p className="text-xs text-gray-400 mt-1">
-              {newStationPosition.lat.toFixed(6)}, {newStationPosition.lng.toFixed(6)}
+              {sanitizeNumber(newStationPosition.lat, 6)}, {sanitizeNumber(newStationPosition.lng, 6)}
             </p>
             {newStationPosition.suggestedName && (
-              <p className="text-xs text-orange-400 mt-1">{newStationPosition.suggestedName}</p>
+              <p className="text-xs text-orange-400 mt-1">{escapeHtml(newStationPosition.suggestedName)}</p>
             )}
           </div>
           <div className="flex gap-2">

@@ -30,13 +30,9 @@ export default function LoginPage({ onLogin }) {
 
       const { token, user } = response.data;
       
-      localStorage.setItem("bartz_token", token);
-      localStorage.setItem("bartz_user", JSON.stringify(user));
-      
       toast.success(`Bem-vindo, ${user.name || user.username}!`);
       onLogin(user, token);
     } catch (error) {
-      console.error("Login error:", error);
       toast.error(error.response?.data?.detail || "Erro ao fazer login");
     } finally {
       setIsLoading(false);

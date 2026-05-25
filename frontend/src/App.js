@@ -1,5 +1,5 @@
 import "@/App.css";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
 import FleetDashboard from "@/pages/FleetDashboard";
@@ -8,10 +8,17 @@ import axios from "axios";
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
+// Storage keys constants
+const STORAGE_KEYS = {
+  TOKEN: "bartz_token",
+  USER: "bartz_user",
+  LOGIN_DATE: "bartz_login_date",
+};
+
 // Check if session is still valid (expires at midnight)
 function isSessionValid() {
-  const token = localStorage.getItem("bartz_token");
-  const loginDate = localStorage.getItem("bartz_login_date");
+  const token = sessionStorage.getItem(STORAGE_KEYS.TOKEN);
+  const loginDate = sessionStorage.getItem(STORAGE_KEYS.LOGIN_DATE);
   
   if (!token) return false;
   
@@ -19,13 +26,18 @@ function isSessionValid() {
   const today = new Date().toDateString();
   if (loginDate !== today) {
     // Session expired at midnight
-    localStorage.removeItem("bartz_token");
-    localStorage.removeItem("bartz_user");
-    localStorage.removeItem("bartz_login_date");
+    clearSession();
     return false;
   }
   
   return true;
+}
+
+// Clear session data
+function clearSession() {
+  sessionStorage.removeItem(STORAGE_KEYS.TOKEN);
+  sessionStorage.removeItem(STORAGE_KEYS.USER);
+  sessionStorage.removeItem(STORAGE_KEYS.LOGIN_DATE);
 }
 
 // Protected Route wrapper
@@ -43,14 +55,16 @@ function App() {
 
   // Check for existing session on mount
   useEffect(() => {
+    let isMounted = true;
+    
     const checkSession = async () => {
       if (!isSessionValid()) {
-        setIsLoading(false);
+        if (isMounted) setIsLoading(false);
         return;
       }
 
-      const storedToken = localStorage.getItem("bartz_token");
-      const storedUser = localStorage.getItem("bartz_user");
+      const storedToken = sessionStorage.getItem(STORAGE_KEYS.TOKEN);
+      const storedUser = sessionStorage.getItem(STORAGE_KEYS.USER);
 
       if (storedToken && storedUser) {
         try {
@@ -59,38 +73,41 @@ function App() {
             headers: { Authorization: `Bearer ${storedToken}` }
           });
           
-          setUser(res.data);
-          setToken(storedToken);
-        } catch (error) {
+          if (isMounted) {
+            setUser(res.data);
+            setToken(storedToken);
+          }
+        } catch {
           // Token invalid, clear storage
-          console.error("Session validation failed:", error);
-          localStorage.removeItem("bartz_token");
-          localStorage.removeItem("bartz_user");
-          localStorage.removeItem("bartz_login_date");
+          clearSession();
         }
       }
       
-      setIsLoading(false);
+      if (isMounted) setIsLoading(false);
     };
 
     checkSession();
+    
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // Handle login
-  const handleLogin = (userData, authToken) => {
+  const handleLogin = useCallback((userData, authToken) => {
     setUser(userData);
     setToken(authToken);
-    localStorage.setItem("bartz_login_date", new Date().toDateString());
-  };
+    sessionStorage.setItem(STORAGE_KEYS.TOKEN, authToken);
+    sessionStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(userData));
+    sessionStorage.setItem(STORAGE_KEYS.LOGIN_DATE, new Date().toDateString());
+  }, []);
 
   // Handle logout
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     setUser(null);
     setToken(null);
-    localStorage.removeItem("bartz_token");
-    localStorage.removeItem("bartz_user");
-    localStorage.removeItem("bartz_login_date");
-  };
+    clearSession();
+  }, []);
 
   // Loading state
   if (isLoading) {
