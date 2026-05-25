@@ -210,7 +210,7 @@ class TestRouteCalculation:
         assert 3500 < distance < 4500, f"Expected ~3800-4000km, got {distance}km"
         
         # Should not be able to complete route with 500km autonomy
-        assert data["can_complete_route"] == False
+        assert data["can_complete_route"] is False
     
     def test_route_with_waypoints(self):
         """Test route calculation with waypoints"""

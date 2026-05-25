@@ -497,7 +497,6 @@ export default function AdminPanel({ user, token, onClose }) {
                         
                         toast.success("Relatório baixado com sucesso!", { id: "report" });
                       } catch (error) {
-                        console.error("Error generating report:", error);
                         toast.error("Erro ao gerar relatório", { id: "report" });
                       }
                     }}

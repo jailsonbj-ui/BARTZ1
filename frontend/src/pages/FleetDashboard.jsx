@@ -100,7 +100,7 @@ export default function FleetDashboard({ user, token, onLogout }) {
         toast.success("Postos de exemplo carregados!");
       }
     } catch (error) {
-      console.error("Error fetching stations:", error);
+      
       toast.error("Erro ao carregar postos");
     }
   };
@@ -111,7 +111,7 @@ export default function FleetDashboard({ user, token, onLogout }) {
       const response = await axios.get(`${API}/search-cities`, { params: { query } });
       return response.data;
     } catch (error) {
-      console.error("Error searching cities:", error);
+      
       return [];
     }
   };
@@ -158,7 +158,7 @@ export default function FleetDashboard({ user, token, onLogout }) {
       
       toast.success(`Rota: ${response.data.total_distance.toFixed(0)} km`);
     } catch (error) {
-      console.error("Error calculating route:", error);
+      
       toast.error(error.response?.data?.detail || "Erro ao calcular rota");
     } finally {
       setIsLoading(false);
@@ -182,7 +182,7 @@ export default function FleetDashboard({ user, token, onLogout }) {
         toast.success(`Plano: ${response.data.total_stops} paradas, R$ ${response.data.total_cost.toFixed(2)}`);
       }
     } catch (error) {
-      console.error("Error planning fuel stops:", error);
+      
       toast.error("Erro ao planejar abastecimentos");
     } finally {
       setIsLoading(false);
@@ -201,7 +201,7 @@ export default function FleetDashboard({ user, token, onLogout }) {
       setServiceOrder(response.data);
       toast.success("Ordem gerada!");
     } catch (error) {
-      console.error("Error generating service order:", error);
+      
       toast.error("Erro ao gerar ordem");
     } finally {
       setIsLoading(false);
@@ -215,7 +215,7 @@ export default function FleetDashboard({ user, token, onLogout }) {
       toast.success("Posto criado!");
       return response.data;
     } catch (error) {
-      console.error("Error creating station:", error);
+      
       toast.error("Erro ao criar posto");
       throw error;
     }
@@ -228,7 +228,7 @@ export default function FleetDashboard({ user, token, onLogout }) {
       toast.success("Posto atualizado!");
       return response.data;
     } catch (error) {
-      console.error("Error updating station:", error);
+      
       toast.error("Erro ao atualizar posto");
       throw error;
     }
@@ -241,7 +241,7 @@ export default function FleetDashboard({ user, token, onLogout }) {
       setSelectedStation(null);
       toast.success("Posto removido!");
     } catch (error) {
-      console.error("Error deleting station:", error);
+      
       toast.error("Erro ao remover posto");
     }
   };
@@ -281,7 +281,7 @@ export default function FleetDashboard({ user, token, onLogout }) {
       setAiResponse(response.data.advice);
       toast.success("Consulta concluída!");
     } catch (error) {
-      console.error("Error asking AI:", error);
+      
       toast.error("Erro ao consultar IA");
     } finally {
       setIsLoading(false);
@@ -314,7 +314,7 @@ export default function FleetDashboard({ user, token, onLogout }) {
       setServiceOrder(response.data);
       toast.success("Ordem de abastecimento gerada!");
     } catch (error) {
-      console.error("Error generating full order:", error);
+      
       toast.error("Erro ao gerar ordem");
     } finally {
       setIsLoading(false);
@@ -358,7 +358,7 @@ export default function FleetDashboard({ user, token, onLogout }) {
       setPlanModified(false);
       toast.success("Reanálise concluída!");
     } catch (error) {
-      console.error("Error reanalyzing:", error);
+      
       toast.error("Erro ao reanalisar");
     } finally {
       setIsLoading(false);
@@ -386,7 +386,7 @@ export default function FleetDashboard({ user, token, onLogout }) {
       setPlanModified(true);
       toast.success("Posto adicionado ao plano!");
     } catch (error) {
-      console.error("Error adding station to plan:", error);
+      
       toast.error("Erro ao adicionar posto");
     } finally {
       setIsLoading(false);

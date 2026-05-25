@@ -90,9 +90,9 @@ function CityAutocomplete({ value, onChange, onSelect, searchCities, placeholder
       )}
       {showSuggestions && suggestions.length > 0 && (
         <div className="absolute z-50 w-full mt-1 bg-popover border border-white/10 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-          {suggestions.map((city, index) => (
+          {suggestions.map((city) => (
             <div
-              key={index}
+              key={`${city.name}-${city.state}`}
               onClick={() => handleSelect(city)}
               className="px-3 py-2 hover:bg-accent cursor-pointer text-sm"
             >
@@ -410,7 +410,7 @@ export default function ControlPanel({
                     <div className="space-y-2">
                       <Label className="text-xs text-muted-foreground">Paradas</Label>
                       {waypointCities.map((city, index) => (
-                        <div key={index} className="flex items-center gap-2">
+                        <div key={`waypoint-${index}-${city}`} className="flex items-center gap-2">
                           <CityAutocomplete
                             value={city}
                             onChange={(v) => updateWaypoint(index, v)}
@@ -717,8 +717,8 @@ export default function ControlPanel({
                         <div className="flex items-center gap-2 text-red-400 font-medium text-sm">
                           <AlertTriangle className="w-4 h-4" /> Trechos sem postos
                         </div>
-                        {fuelPlan.gaps.map((gap, index) => (
-                          <div key={index} className="text-xs text-red-300/80">
+                        {fuelPlan.gaps.map((gap) => (
+                          <div key={`gap-${gap.start_km}-${gap.end_km}`} className="text-xs text-red-300/80">
                             {gap.start_km}km - {gap.end_km}km: {gap.suggestion}
                           </div>
                         ))}
