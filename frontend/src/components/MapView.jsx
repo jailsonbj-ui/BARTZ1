@@ -1,47 +1,15 @@
 import { useEffect, useMemo, useCallback, useState, useRef } from "react";
-import { GoogleMap, useJsApiLoader, Marker, Polyline, InfoWindow, TrafficLayer, Autocomplete } from "@react-google-maps/api";
+import mapboxgl from "mapbox-gl";
+import MapboxGeocoder from "@mapbox/mapbox-gl-geocoder";
+import "mapbox-gl/dist/mapbox-gl.css";
+import "@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css";
 import { Fuel, MapPin, AlertTriangle, Star, Loader2, Plus, X, Layers, Map as MapIcon, Globe, Car, Search, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 
-const GOOGLE_MAPS_KEY = process.env.REACT_APP_GOOGLE_MAPS_KEY;
-const LIBRARIES = ["places"];
+const MAPBOX_TOKEN = process.env.REACT_APP_MAPBOX_TOKEN;
 
-const mapContainerStyle = {
-  width: "100%",
-  height: "100%",
-};
-
-const MAP_STYLES = {
-  dark: [
-    { elementType: "geometry", stylers: [{ color: "#1d2c4d" }] },
-    { elementType: "labels.text.fill", stylers: [{ color: "#8ec3b9" }] },
-    { elementType: "labels.text.stroke", stylers: [{ color: "#1a3646" }] },
-    { featureType: "administrative.country", elementType: "geometry.stroke", stylers: [{ color: "#4b6878" }] },
-    { featureType: "administrative.land_parcel", elementType: "labels.text.fill", stylers: [{ color: "#64779e" }] },
-    { featureType: "administrative.province", elementType: "geometry.stroke", stylers: [{ color: "#4b6878" }] },
-    { featureType: "landscape.man_made", elementType: "geometry.stroke", stylers: [{ color: "#334e87" }] },
-    { featureType: "landscape.natural", elementType: "geometry", stylers: [{ color: "#023e58" }] },
-    { featureType: "poi", elementType: "geometry", stylers: [{ color: "#283d6a" }] },
-    { featureType: "poi", elementType: "labels.text.fill", stylers: [{ color: "#6f9ba5" }] },
-    { featureType: "poi", elementType: "labels.text.stroke", stylers: [{ color: "#1d2c4d" }] },
-    { featureType: "poi.park", elementType: "geometry.fill", stylers: [{ color: "#023e58" }] },
-    { featureType: "poi.park", elementType: "labels.text.fill", stylers: [{ color: "#3C7680" }] },
-    { featureType: "road", elementType: "geometry", stylers: [{ color: "#304a7d" }] },
-    { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#98a5be" }] },
-    { featureType: "road", elementType: "labels.text.stroke", stylers: [{ color: "#1d2c4d" }] },
-    { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#2c6675" }] },
-    { featureType: "road.highway", elementType: "geometry.stroke", stylers: [{ color: "#255763" }] },
-    { featureType: "road.highway", elementType: "labels.text.fill", stylers: [{ color: "#b0d5ce" }] },
-    { featureType: "road.highway", elementType: "labels.text.stroke", stylers: [{ color: "#023e58" }] },
-    { featureType: "transit", elementType: "labels.text.fill", stylers: [{ color: "#98a5be" }] },
-    { featureType: "transit", elementType: "labels.text.stroke", stylers: [{ color: "#1d2c4d" }] },
-    { featureType: "transit.line", elementType: "geometry.fill", stylers: [{ color: "#283d6a" }] },
-    { featureType: "transit.station", elementType: "geometry", stylers: [{ color: "#3a4762" }] },
-    { featureType: "water", elementType: "geometry", stylers: [{ color: "#0e1626" }] },
-    { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#4e6d70" }] },
-  ],
-};
+// Set Mapbox access token
+mapboxgl.accessToken = MAPBOX_TOKEN;
 
 const getOverallRating = (ratings) => {
   if (!ratings) return 0;
@@ -85,105 +53,13 @@ const STATION_COLORS = {
 
 // Price ranking colors
 const PRICE_RANKING_COLORS = {
-  best: "#10B981",    // Emerald/Green - Top 3 best prices in state
-  worst: "#EF4444",   // Red - Top 3 worst prices in state
-  normal: null,       // Use default color
-};
-
-// Custom marker icons using SVG data URLs
-const createStationMarkerIcon = (station, isPlannedStop, stopNumber, priceRanking = null) => {
-  const isActive = station.is_active !== false;
-  const customColor = station.marker_color || "orange";
-  const customIcon = station.marker_icon || "fuel";
-  
-  // Determine color based on price ranking
-  let baseColor;
-  let borderColor = "white";
-  let borderWidth = 3;
-  
-  if (isPlannedStop) {
-    baseColor = "#10B981";
-  } else if (!isActive) {
-    baseColor = "#64748B";
-  } else if (priceRanking === "best") {
-    baseColor = PRICE_RANKING_COLORS.best;
-    borderColor = "#065F46"; // Darker green border
-    borderWidth = 4;
-  } else if (priceRanking === "worst") {
-    baseColor = PRICE_RANKING_COLORS.worst;
-    borderColor = "#7F1D1D"; // Darker red border
-    borderWidth = 4;
-  } else {
-    baseColor = STATION_COLORS[customColor]?.hex || "#F97316";
-  }
-  
-  const iconPath = STATION_ICONS[customIcon]?.path || STATION_ICONS.fuel.path;
-  const opacity = isActive ? "1" : "0.6";
-  
-  // Add crown for best prices, skull for worst
-  const rankingBadge = priceRanking === "best" 
-    ? `<circle cx="32" cy="8" r="8" fill="#10B981" stroke="white" stroke-width="2"/><text x="32" y="12" text-anchor="middle" fill="white" font-size="10" font-weight="bold">★</text>`
-    : priceRanking === "worst"
-    ? `<circle cx="32" cy="8" r="8" fill="#EF4444" stroke="white" stroke-width="2"/><text x="32" y="12" text-anchor="middle" fill="white" font-size="10" font-weight="bold">!</text>`
-    : '';
-  
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="40" height="56" viewBox="0 0 40 56" opacity="${opacity}">
-      <defs>
-        <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
-          <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000" flood-opacity="0.3"/>
-        </filter>
-      </defs>
-      <circle cx="20" cy="20" r="16" fill="${baseColor}" stroke="${borderColor}" stroke-width="${borderWidth}" filter="url(#shadow)"/>
-      <path d="${iconPath}" fill="white" opacity="0.9" transform="scale(0.6) translate(13, 13)"/>
-      ${isPlannedStop ? `<circle cx="32" cy="8" r="8" fill="#10B981" stroke="white" stroke-width="2"/><text x="32" y="12" text-anchor="middle" fill="white" font-size="10" font-weight="bold">${stopNumber}</text>` : rankingBadge}
-      ${!isActive ? `<line x1="8" y1="8" x2="32" y2="32" stroke="#EF4444" stroke-width="3"/>` : ''}
-      <rect x="5" y="42" width="30" height="14" rx="3" fill="#0F172A"/>
-      <text x="20" y="52" text-anchor="middle" fill="${isActive ? baseColor : '#64748B'}" font-size="9" font-weight="bold" font-family="monospace">R$${station.diesel_price?.toFixed(2) || '0.00'}</text>
-    </svg>
-  `;
-  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+  best: "#10B981",
+  worst: "#EF4444",
+  normal: null,
 };
 
 // Export for use in ControlPanel
 export { STATION_ICONS, STATION_COLORS };
-
-const createRoutePointIcon = (type) => {
-  const colors = {
-    origin: "#10B981",
-    destination: "#EF4444",
-    waypoint: "#3B82F6",
-    fuelLimit: "#EF4444",
-  };
-  const color = colors[type] || "#3B82F6";
-  
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
-      <defs>
-        <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
-          <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000" flood-opacity="0.3"/>
-        </filter>
-      </defs>
-      <circle cx="16" cy="16" r="14" fill="${color}" stroke="white" stroke-width="2" filter="url(#shadow)"/>
-      ${type === 'origin' ? '<path d="M16 8l6 10h-12z" fill="white"/>' : ''}
-      ${type === 'destination' ? '<circle cx="16" cy="16" r="5" fill="white"/>' : ''}
-      ${type === 'waypoint' ? '<circle cx="16" cy="16" r="4" fill="white"/>' : ''}
-      ${type === 'fuelLimit' ? '<path d="M16 10l-6 10h12z" fill="white"/><rect x="14" y="22" width="4" height="2" fill="white"/>' : ''}
-    </svg>
-  `;
-  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
-};
-
-const createNewStationIcon = () => {
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">
-      <circle cx="20" cy="20" r="18" fill="#10B981" stroke="white" stroke-width="3" stroke-dasharray="5,3"/>
-      <line x1="20" y1="10" x2="20" y2="30" stroke="white" stroke-width="3"/>
-      <line x1="10" y1="20" x2="30" y2="20" stroke="white" stroke-width="3"/>
-    </svg>
-  `;
-  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
-};
 
 export default function MapView({
   stations,
@@ -195,104 +71,21 @@ export default function MapView({
   mapStyle = "dark",
   theme = "dark",
 }) {
-  const [map, setMap] = useState(null);
-  const [activeInfoWindow, setActiveInfoWindow] = useState(null);
+  const mapContainerRef = useRef(null);
+  const mapRef = useRef(null);
+  const markersRef = useRef({});
+  const popupRef = useRef(null);
+  const geocoderRef = useRef(null);
+  
+  const [mapLoaded, setMapLoaded] = useState(false);
   const [isCreatingStation, setIsCreatingStation] = useState(false);
   const [newStationPosition, setNewStationPosition] = useState(null);
   const [showTraffic, setShowTraffic] = useState(true);
   const [mapType, setMapType] = useState("hybrid");
   const [showLayersMenu, setShowLayersMenu] = useState(false);
-  const [searchBox, setSearchBox] = useState(null);
-  const [searchValue, setSearchValue] = useState("");
   const [searchMarker, setSearchMarker] = useState(null);
-  const searchInputRef = useRef(null);
 
-  const { isLoaded, loadError } = useJsApiLoader({
-    googleMapsApiKey: GOOGLE_MAPS_KEY,
-    libraries: LIBRARIES,
-  });
-
-  const onSearchLoad = (autocomplete) => {
-    setSearchBox(autocomplete);
-  };
-
-  const onPlaceChanged = () => {
-    if (searchBox) {
-      const place = searchBox.getPlace();
-      if (place.geometry && place.geometry.location) {
-        const lat = place.geometry.location.lat();
-        const lng = place.geometry.location.lng();
-        
-        // Extract city from address components
-        let city = "";
-        let placeName = place.name || "";
-        if (place.address_components) {
-          const cityComponent = place.address_components.find(
-            c => c.types.includes("administrative_area_level_2") || c.types.includes("locality")
-          );
-          const stateComponent = place.address_components.find(
-            c => c.types.includes("administrative_area_level_1")
-          );
-          if (cityComponent) {
-            city = cityComponent.long_name;
-            if (stateComponent) {
-              city += `-${stateComponent.short_name}`;
-            }
-          }
-        }
-        
-        // Set search marker with place info
-        setSearchMarker({
-          lat,
-          lng,
-          name: place.formatted_address || place.name || "Local buscado",
-          placeName: placeName,
-          city: city
-        });
-        
-        if (map) {
-          map.panTo({ lat, lng });
-          map.setZoom(14);
-        }
-        
-        setSearchValue(place.formatted_address || place.name || "");
-      }
-    }
-  };
-
-  const clearSearch = () => {
-    setSearchValue("");
-    setSearchMarker(null);
-  };
-
-  // Create search marker icon
-  const createSearchMarkerIcon = () => {
-    const svg = `
-      <svg xmlns="http://www.w3.org/2000/svg" width="40" height="50" viewBox="0 0 40 50">
-        <defs>
-          <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
-            <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#000" flood-opacity="0.4"/>
-          </filter>
-        </defs>
-        <path d="M20 0 C9 0 0 9 0 20 C0 35 20 50 20 50 C20 50 40 35 40 20 C40 9 31 0 20 0 Z" fill="#EF4444" stroke="white" stroke-width="2" filter="url(#shadow)"/>
-        <circle cx="20" cy="18" r="8" fill="white"/>
-      </svg>
-    `;
-    return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
-  };
-
-  const center = useMemo(() => {
-    if (routeData?.route_geometry?.length > 0) {
-      const lats = routeData.route_geometry.map((p) => p[0]);
-      const lngs = routeData.route_geometry.map((p) => p[1]);
-      return {
-        lat: (Math.min(...lats) + Math.max(...lats)) / 2,
-        lng: (Math.min(...lngs) + Math.max(...lngs)) / 2,
-      };
-    }
-    return { lat: -26.5, lng: -49.5 };
-  }, [routeData]);
-
+  // Calculate planned stop IDs
   const plannedStopIds = useMemo(() => {
     if (!fuelPlan?.stops) return new Map();
     const stopMap = new Map();
@@ -302,24 +95,21 @@ export default function MapView({
     return stopMap;
   }, [fuelPlan]);
 
-  // Calculate price rankings by state (best 3 and worst 3)
+  // Calculate price rankings by state
   const priceRankings = useMemo(() => {
     const rankings = new Map();
-    
-    // Group active stations by state (extracted from city field)
     const stationsByState = new Map();
+    
     stations.forEach(station => {
       if (station.is_active === false) return;
       if (!station.diesel_price) return;
       
-      // Extract state from city field (e.g., "Curitiba-PR" -> "PR")
       let state = "UNKNOWN";
       if (station.city) {
         const match = station.city.match(/-([A-Z]{2})$/);
         if (match) {
           state = match[1];
         } else {
-          // Try to extract from full city name
           const parts = station.city.split(/[-,]/);
           if (parts.length > 1) {
             state = parts[parts.length - 1].trim().toUpperCase();
@@ -333,24 +123,20 @@ export default function MapView({
       stationsByState.get(state).push(station);
     });
     
-    // For each state, find best 3 and worst 3 prices
-    stationsByState.forEach((stateStations, state) => {
-      if (stateStations.length < 2) return; // Need at least 2 stations to compare
+    stationsByState.forEach((stateStations) => {
+      if (stateStations.length < 2) return;
       
-      // Sort by price ascending
       const sorted = [...stateStations].sort((a, b) => a.diesel_price - b.diesel_price);
-      
-      // Mark best 3 (lowest prices)
       const bestCount = Math.min(3, Math.floor(sorted.length / 2));
+      
       for (let i = 0; i < bestCount; i++) {
         rankings.set(sorted[i].id, "best");
       }
       
-      // Mark worst 3 (highest prices)
       const worstCount = Math.min(3, Math.floor(sorted.length / 2));
       for (let i = 0; i < worstCount; i++) {
         const worstIndex = sorted.length - 1 - i;
-        if (!rankings.has(sorted[worstIndex].id)) { // Don't overwrite if already marked as best
+        if (!rankings.has(sorted[worstIndex].id)) {
           rankings.set(sorted[worstIndex].id, "worst");
         }
       }
@@ -359,58 +145,468 @@ export default function MapView({
     return rankings;
   }, [stations]);
 
-  // Fit bounds when route changes
+  // Get marker color based on station state
+  const getMarkerColor = (station, isPlannedStop, priceRanking) => {
+    if (isPlannedStop) return "#10B981";
+    if (station.is_active === false) return "#64748B";
+    if (priceRanking === "best") return PRICE_RANKING_COLORS.best;
+    if (priceRanking === "worst") return PRICE_RANKING_COLORS.worst;
+    return STATION_COLORS[station.marker_color]?.hex || "#F97316";
+  };
+
+  // Create HTML for station marker
+  const createStationMarkerElement = (station, isPlannedStop, stopNumber, priceRanking) => {
+    const color = getMarkerColor(station, isPlannedStop, priceRanking);
+    const isActive = station.is_active !== false;
+    const opacity = isActive ? 1 : 0.6;
+    
+    const el = document.createElement('div');
+    el.className = 'station-marker';
+    el.style.cssText = `
+      width: 40px;
+      height: 56px;
+      cursor: pointer;
+      opacity: ${opacity};
+    `;
+    
+    const badge = isPlannedStop 
+      ? `<circle cx="32" cy="8" r="8" fill="#10B981" stroke="white" stroke-width="2"/><text x="32" y="12" text-anchor="middle" fill="white" font-size="10" font-weight="bold">${stopNumber}</text>`
+      : priceRanking === "best"
+      ? `<circle cx="32" cy="8" r="8" fill="#10B981" stroke="white" stroke-width="2"/><text x="32" y="12" text-anchor="middle" fill="white" font-size="10" font-weight="bold">★</text>`
+      : priceRanking === "worst"
+      ? `<circle cx="32" cy="8" r="8" fill="#EF4444" stroke="white" stroke-width="2"/><text x="32" y="12" text-anchor="middle" fill="white" font-size="10" font-weight="bold">!</text>`
+      : '';
+    
+    const borderColor = priceRanking === "best" ? "#065F46" : priceRanking === "worst" ? "#7F1D1D" : "white";
+    const borderWidth = priceRanking ? 4 : 3;
+    
+    el.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="40" height="56" viewBox="0 0 40 56">
+        <defs>
+          <filter id="shadow-${station.id}" x="-50%" y="-50%" width="200%" height="200%">
+            <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000" flood-opacity="0.3"/>
+          </filter>
+        </defs>
+        <circle cx="20" cy="20" r="16" fill="${color}" stroke="${borderColor}" stroke-width="${borderWidth}" filter="url(#shadow-${station.id})"/>
+        ${badge}
+        ${!isActive ? `<line x1="8" y1="8" x2="32" y2="32" stroke="#EF4444" stroke-width="3"/>` : ''}
+        <rect x="5" y="42" width="30" height="14" rx="3" fill="#0F172A"/>
+        <text x="20" y="52" text-anchor="middle" fill="${isActive ? color : '#64748B'}" font-size="9" font-weight="bold" font-family="monospace">R$${station.diesel_price?.toFixed(2) || '0.00'}</text>
+      </svg>
+    `;
+    
+    return el;
+  };
+
+  // Create popup content for station
+  const createStationPopupContent = (station, isPlannedStop, stopNumber, priceRanking) => {
+    const priceClass = priceRanking === "best" ? "color: #10B981;" : priceRanking === "worst" ? "color: #EF4444;" : "color: #F97316;";
+    const priceLabel = priceRanking === "best" ? " ★ Melhor preço" : priceRanking === "worst" ? " ⚠ Preço alto" : "";
+    
+    return `
+      <div style="padding: 8px; min-width: 180px; font-family: system-ui, sans-serif;">
+        <div style="font-weight: 600; font-size: 14px; color: #1f2937;">${station.name}</div>
+        ${station.city ? `<div style="font-size: 12px; color: #6b7280;">${station.city}</div>` : ''}
+        <div style="font-family: monospace; font-weight: 700; font-size: 18px; margin-top: 4px; ${priceClass}">
+          R$ ${station.diesel_price?.toFixed(2)}/L
+          <span style="font-size: 11px; font-weight: 400;">${priceLabel}</span>
+        </div>
+        ${!station.is_active ? '<div style="font-size: 11px; background: #fee2e2; color: #dc2626; padding: 2px 8px; border-radius: 4px; margin-top: 4px; display: inline-block;">INATIVO</div>' : ''}
+        ${isPlannedStop ? `<div style="margin-top: 8px; font-size: 11px; background: #d1fae5; color: #059669; padding: 4px 8px; border-radius: 4px; display: inline-block;">Parada #${stopNumber} do plano</div>` : ''}
+        <button onclick="navigator.clipboard.writeText('https://www.google.com/maps/search/?api=1&query=${station.latitude},${station.longitude}').then(() => alert('Link copiado!'))" 
+          style="margin-top: 8px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 4px; background: #3b82f6; color: white; font-size: 11px; padding: 6px 8px; border-radius: 4px; border: none; cursor: pointer;">
+          📋 Copiar Link Google Maps
+        </button>
+      </div>
+    `;
+  };
+
+  // Initialize map
   useEffect(() => {
-    if (map && routeData?.route_geometry?.length > 0) {
-      const bounds = new window.google.maps.LatLngBounds();
-      routeData.route_geometry.forEach((point) => {
-        bounds.extend({ lat: point[0], lng: point[1] });
+    if (!mapContainerRef.current || mapRef.current) return;
+
+    const map = new mapboxgl.Map({
+      container: mapContainerRef.current,
+      style: mapType === "hybrid" ? "mapbox://styles/mapbox/satellite-streets-v12" : "mapbox://styles/mapbox/dark-v11",
+      center: [-49.5, -26.5],
+      zoom: 6,
+      attributionControl: false,
+    });
+
+    map.addControl(new mapboxgl.NavigationControl(), 'top-left');
+    map.addControl(new mapboxgl.ScaleControl(), 'bottom-left');
+    
+    // Add geocoder
+    const geocoder = new MapboxGeocoder({
+      accessToken: MAPBOX_TOKEN,
+      mapboxgl: mapboxgl,
+      placeholder: 'Buscar local no mapa...',
+      countries: 'br',
+      language: 'pt-BR',
+      marker: false,
+    });
+    
+    geocoderRef.current = geocoder;
+    map.addControl(geocoder, 'top-right');
+
+    geocoder.on('result', (e) => {
+      const { center, place_name, text } = e.result;
+      setSearchMarker({
+        lng: center[0],
+        lat: center[1],
+        name: place_name || text,
+        placeName: text,
+        city: place_name,
       });
-      map.fitBounds(bounds, { padding: 50 });
-    }
-  }, [map, routeData]);
+    });
 
-  const onLoad = useCallback((mapInstance) => {
-    setMap(mapInstance);
-  }, []);
+    geocoder.on('clear', () => {
+      setSearchMarker(null);
+    });
 
-  const onUnmount = useCallback(() => {
-    setMap(null);
-  }, []);
-
-  const handleMapClick = useCallback((e) => {
-    if (isCreatingStation && e.latLng) {
-      // If there's a search marker, use its position
-      if (searchMarker) {
-        setNewStationPosition({ 
-          lat: searchMarker.lat, 
-          lng: searchMarker.lng,
-          fromSearch: true
+    map.on('load', () => {
+      setMapLoaded(true);
+      
+      // Add traffic layer source
+      if (!map.getSource('mapbox-traffic')) {
+        map.addSource('mapbox-traffic', {
+          type: 'vector',
+          url: 'mapbox://mapbox.mapbox-traffic-v1'
         });
-      } else {
-        setNewStationPosition({ lat: e.latLng.lat(), lng: e.latLng.lng() });
       }
+    });
+
+    map.on('click', (e) => {
+      if (isCreatingStation) {
+        setNewStationPosition({ lat: e.lngLat.lat, lng: e.lngLat.lng });
+      }
+    });
+
+    mapRef.current = map;
+
+    return () => {
+      map.remove();
+      mapRef.current = null;
+    };
+  }, []);
+
+  // Update map style when mapType changes
+  useEffect(() => {
+    if (!mapRef.current || !mapLoaded) return;
+    
+    const style = mapType === "hybrid" 
+      ? "mapbox://styles/mapbox/satellite-streets-v12" 
+      : mapType === "satellite"
+      ? "mapbox://styles/mapbox/satellite-v9"
+      : "mapbox://styles/mapbox/dark-v11";
+    
+    mapRef.current.setStyle(style);
+  }, [mapType, mapLoaded]);
+
+  // Update traffic layer
+  useEffect(() => {
+    if (!mapRef.current || !mapLoaded) return;
+    
+    const map = mapRef.current;
+    
+    map.on('style.load', () => {
+      if (showTraffic) {
+        if (!map.getSource('mapbox-traffic')) {
+          map.addSource('mapbox-traffic', {
+            type: 'vector',
+            url: 'mapbox://mapbox.mapbox-traffic-v1'
+          });
+        }
+        
+        if (!map.getLayer('traffic-layer')) {
+          map.addLayer({
+            id: 'traffic-layer',
+            type: 'line',
+            source: 'mapbox-traffic',
+            'source-layer': 'traffic',
+            paint: {
+              'line-width': 2,
+              'line-color': [
+                'match',
+                ['get', 'congestion'],
+                'low', '#10B981',
+                'moderate', '#F59E0B',
+                'heavy', '#EF4444',
+                'severe', '#7C3AED',
+                '#6B7280'
+              ]
+            }
+          });
+        }
+      } else {
+        if (map.getLayer('traffic-layer')) {
+          map.removeLayer('traffic-layer');
+        }
+      }
+    });
+  }, [showTraffic, mapLoaded]);
+
+  // Update route on map
+  useEffect(() => {
+    if (!mapRef.current || !mapLoaded) return;
+    
+    const map = mapRef.current;
+    
+    // Wait for style to be loaded
+    const updateRoute = () => {
+      // Remove existing route
+      if (map.getLayer('route-line')) {
+        map.removeLayer('route-line');
+      }
+      if (map.getSource('route')) {
+        map.removeSource('route');
+      }
+
+      if (routeData?.route_geometry?.length > 1) {
+        // Convert [lat, lng] to [lng, lat] for Mapbox
+        const coordinates = routeData.route_geometry.map(point => [point[1], point[0]]);
+        
+        map.addSource('route', {
+          type: 'geojson',
+          data: {
+            type: 'Feature',
+            properties: {},
+            geometry: {
+              type: 'LineString',
+              coordinates: coordinates
+            }
+          }
+        });
+
+        map.addLayer({
+          id: 'route-line',
+          type: 'line',
+          source: 'route',
+          layout: {
+            'line-join': 'round',
+            'line-cap': 'round'
+          },
+          paint: {
+            'line-color': '#F97316',
+            'line-width': 5,
+            'line-opacity': 0.9
+          }
+        });
+
+        // Fit bounds to route
+        const bounds = new mapboxgl.LngLatBounds();
+        coordinates.forEach(coord => bounds.extend(coord));
+        map.fitBounds(bounds, { padding: 50 });
+      }
+    };
+
+    if (map.isStyleLoaded()) {
+      updateRoute();
+    } else {
+      map.on('style.load', updateRoute);
     }
-    setActiveInfoWindow(null);
-  }, [isCreatingStation, searchMarker]);
+  }, [routeData, mapLoaded]);
+
+  // Update station markers
+  useEffect(() => {
+    if (!mapRef.current || !mapLoaded) return;
+    
+    const map = mapRef.current;
+    
+    // Remove old markers
+    Object.values(markersRef.current).forEach(marker => marker.remove());
+    markersRef.current = {};
+
+    // Add station markers
+    stations.forEach(station => {
+      const stopNumber = plannedStopIds.get(station.id);
+      const isPlannedStop = !!stopNumber;
+      const priceRanking = priceRankings.get(station.id);
+      
+      const el = createStationMarkerElement(station, isPlannedStop, stopNumber, priceRanking);
+      
+      const marker = new mapboxgl.Marker({ element: el })
+        .setLngLat([station.longitude, station.latitude])
+        .addTo(map);
+
+      // Add click handler for popup
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        
+        // Close existing popup
+        if (popupRef.current) {
+          popupRef.current.remove();
+        }
+
+        const popup = new mapboxgl.Popup({
+          closeButton: true,
+          closeOnClick: true,
+          maxWidth: '300px',
+        })
+          .setLngLat([station.longitude, station.latitude])
+          .setHTML(createStationPopupContent(station, isPlannedStop, stopNumber, priceRanking))
+          .addTo(map);
+
+        popupRef.current = popup;
+        setSelectedStation(station);
+      });
+
+      markersRef.current[station.id] = marker;
+    });
+  }, [stations, plannedStopIds, priceRankings, mapLoaded, setSelectedStation]);
+
+  // Add route point markers
+  useEffect(() => {
+    if (!mapRef.current || !mapLoaded || !routeData?.route_points) return;
+    
+    const map = mapRef.current;
+    
+    routeData.route_points.forEach((point, index) => {
+      const type = index === 0 ? "origin" : index === routeData.route_points.length - 1 ? "destination" : "waypoint";
+      const colors = {
+        origin: "#10B981",
+        destination: "#EF4444",
+        waypoint: "#3B82F6",
+      };
+      
+      const el = document.createElement('div');
+      el.innerHTML = `
+        <svg width="32" height="32" viewBox="0 0 32 32">
+          <circle cx="16" cy="16" r="14" fill="${colors[type]}" stroke="white" stroke-width="2"/>
+          ${type === 'origin' ? '<path d="M16 8l6 10h-12z" fill="white"/>' : ''}
+          ${type === 'destination' ? '<circle cx="16" cy="16" r="5" fill="white"/>' : ''}
+          ${type === 'waypoint' ? '<circle cx="16" cy="16" r="4" fill="white"/>' : ''}
+        </svg>
+      `;
+      el.style.cursor = 'pointer';
+
+      new mapboxgl.Marker({ element: el })
+        .setLngLat([point.lng, point.lat])
+        .addTo(map);
+    });
+  }, [routeData, mapLoaded]);
+
+  // Search marker
+  useEffect(() => {
+    if (!mapRef.current || !mapLoaded) return;
+    
+    const map = mapRef.current;
+    
+    // Remove existing search marker
+    if (markersRef.current['search-marker']) {
+      markersRef.current['search-marker'].remove();
+      delete markersRef.current['search-marker'];
+    }
+
+    if (searchMarker) {
+      const el = document.createElement('div');
+      el.innerHTML = `
+        <svg width="40" height="50" viewBox="0 0 40 50">
+          <path d="M20 0 C9 0 0 9 0 20 C0 35 20 50 20 50 C20 50 40 35 40 20 C40 9 31 0 20 0 Z" fill="#EF4444" stroke="white" stroke-width="2"/>
+          <circle cx="20" cy="18" r="8" fill="white"/>
+        </svg>
+      `;
+      el.style.cursor = 'pointer';
+
+      const marker = new mapboxgl.Marker({ element: el })
+        .setLngLat([searchMarker.lng, searchMarker.lat])
+        .addTo(map);
+
+      // Add popup with create station button
+      el.addEventListener('click', () => {
+        if (popupRef.current) popupRef.current.remove();
+        
+        const popup = new mapboxgl.Popup({ closeButton: true, maxWidth: '280px' })
+          .setLngLat([searchMarker.lng, searchMarker.lat])
+          .setHTML(`
+            <div style="padding: 8px; font-family: system-ui, sans-serif;">
+              <div style="font-weight: 600; font-size: 14px; color: #1f2937;">${searchMarker.name}</div>
+              <div style="font-size: 11px; color: #6b7280; margin-top: 4px;">
+                ${searchMarker.lat.toFixed(6)}, ${searchMarker.lng.toFixed(6)}
+              </div>
+              <button id="create-station-btn" style="margin-top: 8px; width: 100%; background: #10B981; color: white; font-size: 12px; padding: 8px; border-radius: 6px; border: none; cursor: pointer; font-weight: 600;">
+                + Criar Posto Aqui
+              </button>
+            </div>
+          `)
+          .addTo(map);
+
+        popupRef.current = popup;
+        
+        // Add click handler for create station button
+        setTimeout(() => {
+          const btn = document.getElementById('create-station-btn');
+          if (btn) {
+            btn.addEventListener('click', () => {
+              setNewStationPosition({
+                lat: searchMarker.lat,
+                lng: searchMarker.lng,
+                suggestedName: searchMarker.placeName || "",
+                suggestedCity: searchMarker.city || "",
+              });
+              popup.remove();
+            });
+          }
+        }, 100);
+      });
+
+      markersRef.current['search-marker'] = marker;
+      
+      map.flyTo({
+        center: [searchMarker.lng, searchMarker.lat],
+        zoom: 14,
+      });
+    }
+  }, [searchMarker, mapLoaded]);
+
+  // Handle new station position
+  useEffect(() => {
+    if (!mapRef.current || !mapLoaded) return;
+    
+    const map = mapRef.current;
+    
+    // Remove existing new station marker
+    if (markersRef.current['new-station']) {
+      markersRef.current['new-station'].remove();
+      delete markersRef.current['new-station'];
+    }
+
+    if (newStationPosition) {
+      const el = document.createElement('div');
+      el.innerHTML = `
+        <svg width="40" height="40" viewBox="0 0 40 40">
+          <circle cx="20" cy="20" r="18" fill="#10B981" stroke="white" stroke-width="3" stroke-dasharray="5,3"/>
+          <line x1="20" y1="10" x2="20" y2="30" stroke="white" stroke-width="3"/>
+          <line x1="10" y1="20" x2="30" y2="20" stroke="white" stroke-width="3"/>
+        </svg>
+      `;
+
+      const marker = new mapboxgl.Marker({ element: el, draggable: true })
+        .setLngLat([newStationPosition.lng, newStationPosition.lat])
+        .addTo(map);
+
+      marker.on('dragend', () => {
+        const lngLat = marker.getLngLat();
+        setNewStationPosition(prev => ({
+          ...prev,
+          lat: lngLat.lat,
+          lng: lngLat.lng,
+        }));
+      });
+
+      markersRef.current['new-station'] = marker;
+    }
+  }, [newStationPosition, mapLoaded]);
 
   const handleConfirmNewStation = () => {
     if (newStationPosition && onCreateStation) {
-      // Pass search marker info if the position came from search or is close to it
-      const positionData = { ...newStationPosition };
-      if (searchMarker && (newStationPosition.fromSearch || 
-          Math.sqrt(
-            Math.pow(searchMarker.lat - newStationPosition.lat, 2) +
-            Math.pow(searchMarker.lng - newStationPosition.lng, 2)
-          ) < 0.02)) {
-        positionData.suggestedName = searchMarker.placeName || "";
-        positionData.suggestedCity = searchMarker.city || "";
-      }
-      delete positionData.fromSearch;
-      onCreateStation(positionData);
+      onCreateStation(newStationPosition);
       setIsCreatingStation(false);
       setNewStationPosition(null);
-      clearSearch();
+      setSearchMarker(null);
+      if (geocoderRef.current) {
+        geocoderRef.current.clear();
+      }
     }
   };
 
@@ -419,46 +615,13 @@ export default function MapView({
     setNewStationPosition(null);
   };
 
-  const mapOptions = useMemo(() => ({
-    styles: mapType === "roadmap" && mapStyle === "dark" ? MAP_STYLES.dark : [],
-    mapTypeId: mapType,
-    disableDefaultUI: true,
-    zoomControl: true,
-    mapTypeControl: false,
-    streetViewControl: false,
-    fullscreenControl: true,
-    clickableIcons: false,
-    draggableCursor: isCreatingStation ? "crosshair" : "grab",
-    draggingCursor: isCreatingStation ? "crosshair" : "grabbing",
-  }), [mapStyle, mapType, isCreatingStation]);
-
-  // Convert route geometry to Google Maps path format
-  const routePath = useMemo(() => {
-    if (!routeData?.route_geometry?.length) return [];
-    return routeData.route_geometry.map((point) => ({
-      lat: point[0],
-      lng: point[1],
-    }));
-  }, [routeData]);
-
-  if (loadError) {
+  if (!MAPBOX_TOKEN) {
     return (
       <div className="h-full w-full flex items-center justify-center bg-slate-900 text-red-400">
         <div className="text-center">
           <AlertTriangle className="w-12 h-12 mx-auto mb-4" />
-          <p>Erro ao carregar Google Maps</p>
-          <p className="text-sm text-gray-500 mt-2">Verifique a chave da API</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!isLoaded) {
-    return (
-      <div className="h-full w-full flex items-center justify-center bg-slate-900">
-        <div className="text-center text-gray-400">
-          <Loader2 className="w-12 h-12 mx-auto mb-4 animate-spin" />
-          <p>Carregando mapa...</p>
+          <p>Token do Mapbox não configurado</p>
+          <p className="text-sm text-gray-500 mt-2">Configure REACT_APP_MAPBOX_TOKEN</p>
         </div>
       </div>
     );
@@ -466,395 +629,128 @@ export default function MapView({
 
   return (
     <div className="relative h-full w-full">
-      <GoogleMap
-        mapContainerStyle={mapContainerStyle}
-        center={center}
-        zoom={6}
-        onLoad={onLoad}
-        onUnmount={onUnmount}
-        onClick={handleMapClick}
-        options={mapOptions}
-      >
-        {/* Traffic Layer */}
-        {showTraffic && <TrafficLayer />}
+      {/* Map Container */}
+      <div ref={mapContainerRef} className="h-full w-full" />
 
-        {/* Route Polyline - Simple and stable */}
-        {routeData && routePath.length > 1 && (
-          <Polyline
-            key={`route-${routeData.id || Date.now()}`}
-            path={routePath}
-            options={{
-              strokeColor: "#F97316",
-              strokeOpacity: 0.9,
-              strokeWeight: 5,
-            }}
-          />
-        )}
+      {/* Loading State */}
+      {!mapLoaded && (
+        <div className="absolute inset-0 flex items-center justify-center bg-slate-900/80">
+          <div className="text-center text-gray-400">
+            <Loader2 className="w-12 h-12 mx-auto mb-4 animate-spin" />
+            <p>Carregando mapa...</p>
+          </div>
+        </div>
+      )}
 
-        {/* Route Points (Origin, Destination, Waypoints) */}
-        {routeData?.route_points?.map((point, index) => {
-          const type = index === 0 ? "origin" : index === routeData.route_points.length - 1 ? "destination" : "waypoint";
-          return (
-            <Marker
-              key={`route-point-${index}`}
-              position={{ lat: point.lat, lng: point.lng }}
-              icon={{
-                url: createRoutePointIcon(type),
-                scaledSize: new window.google.maps.Size(32, 32),
-                anchor: new window.google.maps.Point(16, 16),
-              }}
-              onClick={() => setActiveInfoWindow(`route-${index}`)}
-            >
-              {activeInfoWindow === `route-${index}` && (
-                <InfoWindow onCloseClick={() => setActiveInfoWindow(null)}>
-                  <div className="p-1">
-                    <div className="font-medium text-sm text-gray-900">{point.name}</div>
-                    <div className="text-xs text-gray-500">
-                      {index === 0 ? "Origem" : index === routeData.route_points.length - 1 ? "Destino" : `Parada ${index}`}
-                    </div>
-                  </div>
-                </InfoWindow>
-              )}
-            </Marker>
-          );
-        })}
-
-        {/* Fuel Limit Point */}
-        {routeData?.fuel_limit_point && !fuelPlan && (
-          <Marker
-            position={{
-              lat: routeData.fuel_limit_point.latitude,
-              lng: routeData.fuel_limit_point.longitude,
-            }}
-            icon={{
-              url: createRoutePointIcon("fuelLimit"),
-              scaledSize: new window.google.maps.Size(32, 32),
-              anchor: new window.google.maps.Point(16, 16),
-            }}
-            onClick={() => setActiveInfoWindow("fuelLimit")}
-          >
-            {activeInfoWindow === "fuelLimit" && (
-              <InfoWindow onCloseClick={() => setActiveInfoWindow(null)}>
-                <div className="p-1">
-                  <div className="font-medium text-sm text-red-600">Limite de Combustível</div>
-                  <div className="text-xs text-gray-500">
-                    {routeData.fuel_limit_point.distance_from_origin} km da origem
-                  </div>
-                </div>
-              </InfoWindow>
-            )}
-          </Marker>
-        )}
-
-        {/* Gap indicators */}
-        {fuelPlan?.gaps?.map((gap, index) => {
-          const gapPosition = routeData?.route_geometry?.[
-            Math.floor(routeData.route_geometry.length * (gap.start_km / routeData.total_distance))
-          ];
-          if (!gapPosition) return null;
-          
-          return (
-            <Marker
-              key={`gap-${index}`}
-              position={{ lat: gapPosition[0], lng: gapPosition[1] }}
-              icon={{
-                url: createRoutePointIcon("fuelLimit"),
-                scaledSize: new window.google.maps.Size(28, 28),
-                anchor: new window.google.maps.Point(14, 14),
-              }}
-              onClick={() => setActiveInfoWindow(`gap-${index}`)}
-            >
-              {activeInfoWindow === `gap-${index}` && (
-                <InfoWindow onCloseClick={() => setActiveInfoWindow(null)}>
-                  <div className="p-1 max-w-xs">
-                    <div className="font-medium text-sm text-red-600">Trecho sem postos</div>
-                    <div className="text-xs text-gray-700">{gap.start_km}km - {gap.end_km}km</div>
-                    <div className="text-xs text-gray-500 mt-1">{gap.suggestion}</div>
-                  </div>
-                </InfoWindow>
-              )}
-            </Marker>
-          );
-        })}
-
-        {/* Station Markers */}
-        {stations.map((station) => {
-          const stopNumber = plannedStopIds.get(station.id);
-          const isPlannedStop = !!stopNumber;
-          const priceRanking = priceRankings.get(station.id);
-          
-          return (
-            <Marker
-              key={station.id}
-              position={{ lat: station.latitude, lng: station.longitude }}
-              icon={{
-                url: createStationMarkerIcon(station, isPlannedStop, stopNumber, priceRanking),
-                scaledSize: new window.google.maps.Size(40, 56),
-                anchor: new window.google.maps.Point(20, 50),
-              }}
-              onClick={() => {
-                setSelectedStation(station);
-                setActiveInfoWindow(`station-${station.id}`);
-              }}
-            >
-              {activeInfoWindow === `station-${station.id}` && (
-                <InfoWindow onCloseClick={() => setActiveInfoWindow(null)}>
-                  <div className="p-2 min-w-[180px]">
-                    <div className="font-medium text-sm text-gray-900">{station.name}</div>
-                    {station.city && <div className="text-xs text-gray-500">{station.city}</div>}
-                    <div className={`font-mono font-bold text-lg mt-1 ${
-                      priceRanking === "best" ? "text-green-600" : 
-                      priceRanking === "worst" ? "text-red-600" : 
-                      "text-orange-600"
-                    }`}>
-                      R$ {station.diesel_price?.toFixed(2)}/L
-                      {priceRanking === "best" && <span className="text-xs ml-1 font-normal">★ Melhor preço</span>}
-                      {priceRanking === "worst" && <span className="text-xs ml-1 font-normal">⚠ Preço alto</span>}
-                    </div>
-                    {!station.is_active && (
-                      <div className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded mt-1 inline-block">
-                        INATIVO
-                      </div>
-                    )}
-                    {station.ratings && (
-                      <div className="flex items-center gap-1 text-xs mt-1">
-                        <Star size={12} className="text-yellow-500 fill-yellow-500" />
-                        <span className="text-gray-700">{getOverallRating(station.ratings)}</span>
-                      </div>
-                    )}
-                    {isPlannedStop && (
-                      <div className="mt-2 text-xs bg-green-100 text-green-700 px-2 py-1 rounded inline-block">
-                        Parada #{stopNumber} do plano
-                      </div>
-                    )}
-                    {/* Copy Google Maps Link Button */}
-                    <button
-                      onClick={() => {
-                        const mapsLink = `https://www.google.com/maps/search/?api=1&query=${station.latitude},${station.longitude}`;
-                        navigator.clipboard.writeText(mapsLink);
-                        alert(`Link do Google Maps copiado!\n\nAbra no celular para navegar até o posto.`);
-                      }}
-                      className="mt-2 w-full flex items-center justify-center gap-1 bg-blue-500 hover:bg-blue-600 text-white text-xs py-1.5 px-2 rounded transition-colors"
-                    >
-                      <Copy size={12} /> Copiar Link Maps
-                    </button>
-                  </div>
-                </InfoWindow>
-              )}
-            </Marker>
-          );
-        })}
-
-        {/* Search Result Marker */}
-        {searchMarker && (
-          <Marker
-            position={{ lat: searchMarker.lat, lng: searchMarker.lng }}
-            icon={{
-              url: createSearchMarkerIcon(),
-              scaledSize: new window.google.maps.Size(40, 50),
-              anchor: new window.google.maps.Point(20, 50),
-            }}
-            onClick={() => setActiveInfoWindow("search")}
-            animation={window.google.maps.Animation.DROP}
-          >
-            {activeInfoWindow === "search" && (
-              <InfoWindow onCloseClick={() => setActiveInfoWindow(null)}>
-                <div className="p-2 min-w-[200px]">
-                  <div className="font-medium text-sm text-gray-900">{searchMarker.placeName || searchMarker.name}</div>
-                  {searchMarker.city && (
-                    <div className="text-xs text-gray-600">{searchMarker.city}</div>
-                  )}
-                  <div className="text-xs text-gray-400 mt-1">
-                    {searchMarker.lat.toFixed(6)}, {searchMarker.lng.toFixed(6)}
-                  </div>
-                  <button
-                    onClick={() => {
-                      onCreateStation({
-                        lat: searchMarker.lat,
-                        lng: searchMarker.lng,
-                        suggestedName: searchMarker.placeName || "",
-                        suggestedCity: searchMarker.city || ""
-                      });
-                      setActiveInfoWindow(null);
-                    }}
-                    className="mt-2 w-full bg-green-600 hover:bg-green-700 text-white text-xs py-1.5 px-3 rounded flex items-center justify-center gap-1"
-                  >
-                    <Plus className="w-3 h-3" /> Criar Posto Aqui
-                  </button>
-                </div>
-              </InfoWindow>
-            )}
-          </Marker>
-        )}
-
-        {/* New Station Marker (when creating) */}
-        {newStationPosition && (
-          <Marker
-            position={newStationPosition}
-            icon={{
-              url: createNewStationIcon(),
-              scaledSize: new window.google.maps.Size(40, 40),
-              anchor: new window.google.maps.Point(20, 20),
-            }}
-            draggable={true}
-            onDragEnd={(e) => {
-              if (e.latLng) {
-                setNewStationPosition({ lat: e.latLng.lat(), lng: e.latLng.lng() });
-              }
-            }}
-          />
-        )}
-      </GoogleMap>
-
-      {/* Search Bar Overlay */}
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 w-80">
-        <Autocomplete
-          onLoad={onSearchLoad}
-          onPlaceChanged={onPlaceChanged}
-          options={{
-            componentRestrictions: { country: "br" },
-            types: ["geocode", "establishment"],
-          }}
+      {/* Top Left Controls */}
+      <div className="absolute top-24 left-3 z-10 flex flex-col gap-2">
+        {/* Create Station Button */}
+        <Button
+          data-testid="btn-create-station"
+          onClick={() => setIsCreatingStation(!isCreatingStation)}
+          className={`${isCreatingStation ? 'bg-red-500 hover:bg-red-600' : 'bg-orange-500 hover:bg-orange-600'} text-white shadow-lg`}
+          size="sm"
         >
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <Input
-              ref={searchInputRef}
-              data-testid="input-map-search"
-              type="text"
-              placeholder="Buscar local no mapa..."
-              value={searchValue}
-              onChange={(e) => setSearchValue(e.target.value)}
-              className="pl-10 pr-8 bg-slate-900/95 backdrop-blur-sm border-white/20 text-white placeholder:text-gray-400 shadow-lg"
-            />
-            {searchValue && (
-              <button
-                onClick={clearSearch}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-        </Autocomplete>
-      </div>
+          {isCreatingStation ? <X className="w-4 h-4 mr-1" /> : <Plus className="w-4 h-4 mr-1" />}
+          {isCreatingStation ? 'Cancelar' : 'Novo Posto'}
+        </Button>
 
-      {/* Map Controls Overlay */}
-      <div className="absolute top-16 left-4 flex flex-col gap-2 z-10">
-        {/* Add Station Button */}
-        {!isCreatingStation ? (
-          <Button
-            data-testid="btn-add-station-map"
-            onClick={() => setIsCreatingStation(true)}
-            className="bg-green-600 hover:bg-green-700 text-white shadow-lg"
-            size="sm"
-          >
-            <Plus className="w-4 h-4 mr-1" /> Novo Posto
-          </Button>
-        ) : (
-          <div className="bg-slate-900/95 backdrop-blur-sm rounded-lg p-3 shadow-lg border border-green-500/50">
-            <div className="text-sm text-white mb-2 flex items-center gap-2">
-              <MapPin className="w-4 h-4 text-green-400" />
-              {newStationPosition ? "Arraste para ajustar" : "Clique no mapa"}
-            </div>
-            <div className="flex gap-2">
-              {newStationPosition && (
-                <Button
-                  data-testid="btn-confirm-station"
-                  onClick={handleConfirmNewStation}
-                  size="sm"
-                  className="bg-green-600 hover:bg-green-700"
-                >
-                  Confirmar
-                </Button>
-              )}
-              <Button
-                data-testid="btn-cancel-station"
-                onClick={handleCancelCreation}
-                size="sm"
-                variant="outline"
-                className="border-red-500/50 text-red-400 hover:bg-red-500/10"
-              >
-                <X className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* Layers Control */}
+        {/* Layers Menu */}
         <div className="relative">
           <Button
             data-testid="btn-layers"
             onClick={() => setShowLayersMenu(!showLayersMenu)}
-            variant="secondary"
+            className="bg-slate-800/90 hover:bg-slate-700 text-white shadow-lg"
             size="sm"
-            className="bg-slate-900/90 hover:bg-slate-800 text-white shadow-lg"
           >
-            <Layers className="w-4 h-4 mr-1" /> Camadas
+            <Layers className="w-4 h-4 mr-1" />
+            Camadas
           </Button>
 
           {showLayersMenu && (
-            <div className="absolute top-full left-0 mt-2 bg-slate-900/95 backdrop-blur-sm rounded-lg p-2 shadow-lg border border-white/10 min-w-[160px]">
-              <div className="text-xs text-gray-400 px-2 mb-2 uppercase tracking-wide">Tipo de Mapa</div>
+            <div className="absolute top-full left-0 mt-1 bg-slate-800/95 backdrop-blur rounded-lg shadow-xl border border-white/10 p-3 min-w-[180px]">
+              <div className="text-xs text-gray-400 mb-2 font-medium">Tipo de Mapa</div>
+              <div className="space-y-1 mb-3">
+                {[
+                  { id: 'hybrid', label: 'Híbrido', icon: Globe },
+                  { id: 'satellite', label: 'Satélite', icon: Globe },
+                  { id: 'roadmap', label: 'Mapa', icon: MapIcon },
+                ].map(type => (
+                  <button
+                    key={type.id}
+                    onClick={() => setMapType(type.id)}
+                    className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm transition-colors ${
+                      mapType === type.id ? 'bg-orange-500/20 text-orange-400' : 'text-gray-300 hover:bg-white/10'
+                    }`}
+                  >
+                    <type.icon className="w-4 h-4" />
+                    {type.label}
+                  </button>
+                ))}
+              </div>
               
-              <button
-                onClick={() => setMapType("roadmap")}
-                className={`w-full flex items-center gap-2 px-3 py-2 rounded text-sm transition-colors ${
-                  mapType === "roadmap" ? "bg-primary/20 text-primary" : "text-white hover:bg-white/10"
-                }`}
-              >
-                <MapIcon className="w-4 h-4" /> Mapa
-              </button>
-              
-              <button
-                onClick={() => setMapType("satellite")}
-                className={`w-full flex items-center gap-2 px-3 py-2 rounded text-sm transition-colors ${
-                  mapType === "satellite" ? "bg-primary/20 text-primary" : "text-white hover:bg-white/10"
-                }`}
-              >
-                <MapPin className="w-4 h-4" /> Satélite
-              </button>
-              
-              <button
-                onClick={() => setMapType("terrain")}
-                className={`w-full flex items-center gap-2 px-3 py-2 rounded text-sm transition-colors ${
-                  mapType === "terrain" ? "bg-primary/20 text-primary" : "text-white hover:bg-white/10"
-                }`}
-              >
-                <Globe className="w-4 h-4" /> Relevo
-              </button>
-              
-              <button
-                onClick={() => setMapType("hybrid")}
-                className={`w-full flex items-center gap-2 px-3 py-2 rounded text-sm transition-colors ${
-                  mapType === "hybrid" ? "bg-primary/20 text-primary" : "text-white hover:bg-white/10"
-                }`}
-              >
-                <Layers className="w-4 h-4" /> Híbrido
-              </button>
-
-              <div className="border-t border-white/10 my-2" />
-              <div className="text-xs text-gray-400 px-2 mb-2 uppercase tracking-wide">Camadas</div>
-              
+              <div className="text-xs text-gray-400 mb-2 font-medium border-t border-white/10 pt-2">Camadas</div>
               <button
                 onClick={() => setShowTraffic(!showTraffic)}
-                className={`w-full flex items-center gap-2 px-3 py-2 rounded text-sm transition-colors ${
-                  showTraffic ? "bg-primary/20 text-primary" : "text-white hover:bg-white/10"
+                className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm transition-colors ${
+                  showTraffic ? 'bg-green-500/20 text-green-400' : 'text-gray-300 hover:bg-white/10'
                 }`}
               >
-                <Car className="w-4 h-4" /> Trânsito {showTraffic && "✓"}
+                <Car className="w-4 h-4" />
+                Trânsito
+                {showTraffic && <span className="ml-auto text-xs">✓</span>}
               </button>
             </div>
           )}
         </div>
       </div>
 
-      {/* Creation Mode Indicator */}
-      {isCreatingStation && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-green-600 text-white px-4 py-2 rounded-full shadow-lg text-sm font-medium animate-pulse">
-          Modo de Criação Ativo - Clique no mapa para posicionar
+      {/* New Station Confirmation */}
+      {newStationPosition && (
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10 bg-slate-800/95 backdrop-blur rounded-lg shadow-xl border border-white/10 p-4">
+          <div className="text-center mb-3">
+            <p className="text-white font-medium">Criar posto nesta localização?</p>
+            <p className="text-xs text-gray-400 mt-1">
+              {newStationPosition.lat.toFixed(6)}, {newStationPosition.lng.toFixed(6)}
+            </p>
+            {newStationPosition.suggestedName && (
+              <p className="text-xs text-orange-400 mt-1">{newStationPosition.suggestedName}</p>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <Button
+              onClick={handleCancelCreation}
+              variant="outline"
+              size="sm"
+              className="flex-1"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleConfirmNewStation}
+              className="flex-1 bg-green-600 hover:bg-green-700"
+              size="sm"
+            >
+              Confirmar
+            </Button>
+          </div>
         </div>
       )}
+
+      {/* Creation Mode Indicator */}
+      {isCreatingStation && !newStationPosition && (
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10 bg-orange-500/90 backdrop-blur text-white px-4 py-2 rounded-full shadow-lg">
+          <p className="text-sm font-medium flex items-center gap-2">
+            <MapPin className="w-4 h-4" />
+            Clique no mapa ou busque um local para criar o posto
+          </p>
+        </div>
+      )}
+
+      {/* Attribution */}
+      <div className="absolute bottom-1 right-1 text-[10px] text-gray-500 bg-white/80 px-1 rounded">
+        © Mapbox © OpenStreetMap
+      </div>
     </div>
   );
 }
